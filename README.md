@@ -1,8 +1,8 @@
 MolSelect
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/molselect/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/molselect/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/MolSelect/branch/main/graph/badge.svg)](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/MolSelect/branch/main)
+[![GitHub Actions Build Status](https://github.com/cabb99/molselect/workflows/CI/badge.svg)](https://github.com/cabb99/molselect/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/cabb99/MolSelect/branch/main/graph/badge.svg)](https://codecov.io/gh/cabb99/MolSelect/branch/main)
 
 
 A cross-platform extensible parser for VMD-like molecular selections
