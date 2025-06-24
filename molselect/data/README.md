@@ -1,36 +1,84 @@
-# Sample Package Data
+# MolSelect Data Directory
 
-This directory contains sample additional data you may want to include with your package.
-This is a place where non-code related additional information (such as data files, molecular structures,  etc.) can 
-go that you want to ship alongside your code.
+This directory contains the core data files that define the **protected words** for the MolSelect selection grammar. These protected words are essential for parsing and interpreting selection queries in molecular modeling and analysis. The files here provide the **base keywords**, **base macros**, and the **Lark grammar template** used by the parser. Other packages can extend these definitions by adding their own keywords and macros.
 
-Please note that it is not recommended to place large files in your git directory. If your project requires files larger
-than a few megabytes in size it is recommended to host these files elsewhere. This is especially true for binary files
-as the `git` structure is unable to correctly take updates to these files and will store a complete copy of every version
-in your `git` history which can quickly add up. As a note most `git` hosting services like GitHub have a 1 GB per repository
-cap.
+---
 
-## Including package data
+## Contents
 
-Modify your package's `pyproject.toml` file.
-Update the [tool.setuptools.package_data](https://setuptools.pypa.io/en/latest/userguide/datafiles.html#package-data)
-and point it at the correct files.
-Paths are relative to `package_dir`.
+- **`keywords.json`**: Defines the base set of selection keywords (properties, names, indices, etc.) and their synonyms, types, and descriptions.
+- **`macros.json`**: Contains reusable macro definitions for common molecular groups (e.g., `protein`, `water`, `ion`) and their logical combinations.
+- **`grammar_template.lark`**: The Lark grammar template for the selection language, with placeholders for keywords and macros.
 
-Package data can be accessed at run time with `importlib.resources` or the `importlib_resources` back port.
-See https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
-for suggestions.
+---
 
-If modules within your package will access internal data files using
-[the recommended approach](https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime),
-you may need to include `importlib_resources` in your package dependencies.
-In `pyproject.toml`, include the following in your `[project]` table.
+## Keywords
+
+The `keywords.json` file provides a structured list of all **base keywords** recognized by the grammar. Each keyword entry includes:
+
+- **Name**: The canonical name of the keyword (e.g., `resname`, `chain`, `element`).
+- **Synonyms**: Alternative names or aliases for the keyword.
+- **Type**: The expected data type (`int`, `str`, `float`).
+- **Short**: A brief description.
+- **Description**: A detailed explanation of the keyword's meaning and usage.
+
+**Example:**
+```json
+"resname": {
+  "synonyms": ["label_comp_id", "resName"],
+  "type": "str",
+  "short": "Residue name.",
+  "description": [
+    "Residue name. Three-letter code (e.g., 'GLY' for glycine)."
+  ]
+}
 ```
-dependencies = [
-    "importlib-resources;python_version<'3.10'",
-]
+
+---
+
+## Macros
+
+The `macros.json` file defines **base macros**, which are named logical groups or patterns that can be used in selection queries. Macros can represent sets of residues, atom types, or logical groupings (e.g., `protein`, `nucleic`, `water`, `ion`). Each macro includes:
+
+- **Name**: The macro's identifier.
+- **Synonyms**: Alternative names.
+- **Short**: A brief description.
+- **Description**: A detailed explanation of the macros meaning and usage.
+- **Definition**: The selection expression or logic the macro expands to.
+
+Macros can reference other macros, allowing for composable and extensible selection logic.
+
+**Example:**
+```json
+"protein": {
+  "name": "protein",
+  "synonyms": ["is_protein"],
+  "short": "all amino acids",
+  "description": "All standard and non-standard amino acids (must have a CA atom).",
+  "definition": "_std_aa or _nonstd_aa"
+}
 ```
 
-## Manifest
+---
 
-* `look_and_say.dat`: first entries of the "Look and Say" integer series, sequence [A005150](https://oeis.org/A005150)
+## Grammar Template
+
+The `grammar_template.lark` file is a Lark parser grammar for the selection language. It includes placeholders (`<<KEYWORDS>>`, `<<MACROS>>`, etc.) that are dynamically filled with the current set of keywords and macros at runtime. This ensures that all protected words are reserved and recognized by the parser.
+
+**Key features:**
+- Logical operations (`and`, `or`, `not`, etc.)
+- Selection expressions using keywords and macros
+- Arithmetic and comparison operators
+- Support for string, numeric, and regex values
+- Extensible: other packages can inject additional keywords/macros
+
+**Placeholders:**
+- `<<KEYWORDS>>` and `<<KEYWORDS_NAMES>>`: Insert all base and extended keywords.
+- `<<MACROS>>` and `<<MACROS_NAMES>>`: Insert all base and extended macros.
+- `<<LAST_TOKEN>>`: Insert the fallback token for string values (used as a last resort for unmatched input at the end of the grammar).
+
+---
+
+## Extending the Grammar
+
+Other packages can add their own keywords and macros by providing additional JSON files or by programmatically injecting new entries. The grammar template will automatically include these new protected words, ensuring they are reserved and parsed correctly. Users can also copy the grammar file and use a modified version of this grammar file with the same placeholders in place.
