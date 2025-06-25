@@ -3,6 +3,20 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import Any, Optional,Union
+from typing_extensions import Protocol, runtime_checkable
+
+@runtime_checkable
+class DataFrameLike(Protocol):
+    """Protocol for objects that can be used like a pandas DataFrame."""
+    def __getitem__(self, key: str) -> pd.Series: ...
+    def __setitem__(self, key: str, value: pd.Series) -> None: ...
+    @property
+    def index(self) -> pd.Index: ...
+    @property
+    def columns(self) -> pd.Index: ...
+    def loc(self, indexer) -> 'DataFrameLike': ...
+    def copy(self) -> 'DataFrameLike': ...
+
 
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
