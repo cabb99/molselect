@@ -23,7 +23,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def load_json(path: Path) -> dict:
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
