@@ -8,6 +8,7 @@ dependencies:
     # Base depends
   - python
   - pip
+  - lark
   
   - pydata-sphinx-theme
   - sphinx-design
