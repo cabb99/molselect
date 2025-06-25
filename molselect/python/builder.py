@@ -7,10 +7,25 @@ logger = logging.getLogger(__name__)
 
 @v_args(inline=True)
 class ASTBuilder(Transformer):
-    """Transforms parse trees into AST nodes."""
-    def __init__(self, macros: Optional[Dict[str, str]] = None):
+    """Transforms parse trees into AST nodes, expanding macros immediately using the parser."""
+    def __init__(self, parser=None):
         super().__init__()
-        self.macros = macros or {}
+        if parser is None:
+            from molselect.python.parser import SelectionParser
+            parser = SelectionParser()
+        self.parser = parser
+
+    def parse(self, sel, start_rule='start'):
+        """Convenience method: parse a selection string and return the AST."""
+        tree = self.parser.parse(sel, start_rule=start_rule)
+        return self.transform(tree)
+
+    def _expand_macro_ast(self, name):
+        """Expand a macro by name using the parser and return the AST subtree."""
+        expanded_expr = self.parser.expand_macro(name)
+        tree = self.parser.parse(expanded_expr, start_rule='expr')
+        return self.transform(tree)
+
     def _to_node(self, x):
         # Recursively transform Tree or Token to AST node
         if isinstance(x, Tree):
@@ -112,8 +127,8 @@ class ASTBuilder(Transformer):
         return Same(name, self._to_node(mask))
 
     def macro(self, name):
-        # Macro expansion will be handled in Evaluator
-        return Macro(str(name).lstrip('@'), None)
+        # Immediately expand macro using the parser
+        return self._expand_macro_ast(str(name).lstrip('@'))
 
     def bool_keyword(self, tok):
         # Handle macros
@@ -121,9 +136,9 @@ class ASTBuilder(Transformer):
             return All()
         if tok.type == 'NONE':
             return None_()
-        # If it's a macro, return Macro node
-        if hasattr(self, 'macros') and tok.value in self.macros:
-            return Macro(str(tok.value), None)
+        # If it's a macro, expand it immediately
+        if hasattr(self.parser, 'macros_dict') and tok.value in self.parser.macros_dict:
+            return self._expand_macro_ast(str(tok.value))
         # Otherwise, treat as a column/flag
         return SelectionKeyword(str(tok.value))
 
@@ -136,7 +151,7 @@ class ASTBuilder(Transformer):
         return SelectionKeyword(str(tok))
 
     def macro_sel(self, tok):
-        return Macro(str(tok).lstrip('@'), None)
+        return self._expand_macro_ast(str(tok).lstrip('@'))
 
     def sequence_selection_regex(self, pattern):
         return SequenceSelectionRegex(str(pattern))
