@@ -105,5 +105,5 @@ class Structure(Protocol):
         - If key is a boolean Mask or list of ints → return a new StructureLike
         """
     
-    def select(self, mask:Mask) -> Structure:
+    def select(self, mask:Mask) -> 'Structure':
         """Return a new StructureLike with the same properties, but no selection."""
