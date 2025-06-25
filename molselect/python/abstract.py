@@ -1,53 +1,75 @@
 import math
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any, Optional,Union
 from typing_extensions import Protocol, runtime_checkable
+from molselect.python.protocols import Array, Structure, Mask
 
 @runtime_checkable
-class DataFrameLike(Protocol):
+class Structure(Protocol):
     """Protocol for objects that can be used like a pandas DataFrame."""
-    def __getitem__(self, key: str) -> pd.Series: ...
-    def __setitem__(self, key: str, value: pd.Series) -> None: ...
+    def __getitem__(self, key: str) -> Array: ...
+    def __setitem__(self, key: str, value: Array) -> None: ...
     @property
     def index(self) -> pd.Index: ...
     @property
     def columns(self) -> pd.Index: ...
-    def loc(self, indexer) -> 'DataFrameLike': ...
-    def copy(self) -> 'DataFrameLike': ...
+    def loc(self, indexer) -> 'Structure': ...
+    def copy(self) -> 'Structure': ...
 
 
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
     short_circuit = True
-    def evaluate(self, df: DataFrameLike) -> Any:
+    _symbol: str = None   # subclasses can override
+    
+    def evaluate(self, df: Structure) -> Any:
         raise NotImplementedError
+    
     def symbolic(self) -> str:
-        raise NotImplementedError
+        # 1) If this node has a custom symbol and exactly two fields, render infix
+        if self._symbol and len(fields(self)) == 2:
+            left, right = (getattr(self, f.name) for f in fields(self))
+            return f"({left.symbolic()}) {self._symbol} ({right.symbolic()})"
+        # 2) If it’s a 1-arg prefix operator
+        if self._symbol and len(fields(self)) == 1:
+            (inner,) = (getattr(self, f.name) for f in fields(self))
+            return f"{self._symbol}({inner.symbolic()})"
+        # 3) Fallback: list out all dataclass fields by name
+        parts = []
+        for f in fields(self):
+            v = getattr(self, f.name)
+            if isinstance(v, Node):
+                parts.append(v.symbolic())
+            elif isinstance(v, list):
+                parts.append("[" + ", ".join(x.symbolic() if isinstance(x, Node) else repr(x) for x in v) + "]")
+            else:
+                parts.append(repr(v))
+        name = type(self).__name__
+        return f"{name}(" + ", ".join(parts) + ")"
 
 class LogicNode(Node):
     """Base class for logical nodes that can short-circuit evaluation."""
     @property
-    def evaluate_global(self) -> bool:
+    def evaluate_global(self) -> Mask:
         return getattr(self.left,  'evaluate_global', True) and getattr(self.right, 'evaluate_global', True)
 
 @dataclass
 class Start(Node):
     """Root node of the AST, contains the main expression."""
+    _symbol: str = None
     expr: Node
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Structure:
         """Evaluate the main expression and return a boolean mask."""
-        return df[self.expr.evaluate(df)]
-    def symbolic(self) -> str:
-        """Return the symbolic representation of the main expression."""
-        return self.expr.symbolic() if self.expr else "Start"
+        return Structure.select(self.expr.evaluate)
 # Logical Operators
 @dataclass
 class And(LogicNode):
+    _symbol: str = "&"
     left: Node
     right: Node
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         left_mask = self.left.evaluate(df)
         # Short-circuit: if nothing matches left, return all False
         if not left_mask.any():
@@ -55,17 +77,16 @@ class And(LogicNode):
         # Only evaluate right on the subset where left_mask is True unless short-circuiting is disabled
         right_mask = self.right.evaluate(df[left_mask] if self.right.short_circuit else df)
         # Reindex right_mask to match original df
-        combined = pd.Series(False, index=df.index)
+        combined = Array(False, index=df.index)
         combined.loc[right_mask.index] = left_mask.loc[right_mask.index] & right_mask
         return combined
-    def symbolic(self) -> str:
-        return f"({self.left.symbolic()}) & ({self.right.symbolic()})"
 
 @dataclass
 class Or(Node):
+    _symbol: str = "|"
     left: Node
     right: Node
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         left_mask = self.left.evaluate(df)
         # Short-circuit: if everything matches left, return all True
         if left_mask.all():
@@ -76,14 +97,13 @@ class Or(Node):
         combined = left_mask.copy()
         combined.loc[right_mask.index] = left_mask.loc[right_mask.index] | right_mask
         return combined
-    def symbolic(self) -> str:
-        return f"({self.left.symbolic()}) | ({self.right.symbolic()})"
 
 @dataclass
 class Xor(Node):
+    _symbol: str = "^"
     left: Node
     right: Node
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         left_mask = self.left.evaluate(df)
         # Short-circuit: if everything matches left, return ~right
         if left_mask.all():
@@ -96,43 +116,39 @@ class Xor(Node):
         combined = left_mask.copy()
         combined.loc[right_mask.index] = left_mask.loc[right_mask.index] ^ right_mask
         return combined
-    def symbolic(self) -> str:
-        return f"({self.left.symbolic()}) ^ ({self.right.symbolic()})"
 
 @dataclass
 class Not(Node):
+    _symbol: str = "~"
     expr: Node
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         return ~self.expr.evaluate(df)
-    def symbolic(self) -> str:
-        return f"~({self.expr.symbolic()})"
     
 @dataclass
 class All(Node):
+    _symbol: str = None
     def evaluate(self, df):
-        return pd.Series(True, index=df.index)
-    def symbolic(self):
-        return "All"
+        return Array(True, index=df.index)
 
 @dataclass
 class None_(Node):
+    _symbol: str = None
     def evaluate(self, df):
-        return pd.Series(False, index=df.index)
-    def symbolic(self):
-        return "None"
+        return Array(False, index=df.index)
 
 # Selections
 @dataclass
 class Comparison(Node):
+    _symbol: str = None
     field: Node  # always a Node now
     op: str
     value: Union[str, Node, float, int, None]
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         left = self.field.evaluate(df)
         right = self.value.evaluate(df) if isinstance(self.value, Node) else self.value
 
         op = self.op
-        if not isinstance(left, pd.Series) and isinstance(right, pd.Series):
+        if not isinstance(left, Array) and isinstance(right, Array):
             left, right = right, left
             flip = {'<': '>', '>': '<', '<=': '>=', '>=': '<=', '==': '==', '!=': '!=',
                     'eq': 'eq', 'ne': 'ne', 'lt': 'gt', 'gt': 'lt', 'le': 'ge', 'ge': 'le'}
@@ -159,30 +175,25 @@ class Comparison(Node):
             return ops[op](left, right)
         except TypeError:
             # Return all False if comparison is invalid (e.g., str < int)
-            if isinstance(left, pd.Series):
-                return pd.Series(False, index=left.index)
-            elif isinstance(right, pd.Series):
-                return pd.Series(False, index=right.index)
+            if isinstance(left, Array):
+                return Array(False, index=left.index)
+            elif isinstance(right, Array):
+                return Array(False, index=right.index)
             else:
                 return False
-    def symbolic(self) -> str:
-        return f"{self.field.symbolic()} {self.op} {self.value.symbolic() if isinstance(self.value, Node) else self.value}"
 
 ## Data Values
 class DataValue(Node):
     """Base class for data values that do not evaluate to a Series."""
-    def evaluate(self, df: DataFrameLike) -> Any:
+    def evaluate(self, df: Structure) -> Any:
         raise NotImplementedError(f"{self.__class__.__name__} should not be evaluated directly.")
-    def symbolic(self) -> str:
-        """ Write the name of the class and their values as a string representation. """
-        return f"{self.__class__.__name__}({' '.join(f'{k}={v!r}' for k, v in self.__dict__.items() if v is not None)})"
 
 @dataclass
 class RangeValue(DataValue):
     start: Union[Node]
     end: Union[Node]
     step: Union[Node, None] = None
-    def evaluate(self, df: DataFrameLike):
+    def evaluate(self, df: Structure):
         start = self.start.evaluate(df) if isinstance(self.start, Node) else self.start
         end = self.end.evaluate(df) if isinstance(self.end, Node) else self.end
         step = self.step.evaluate(df) if isinstance(self.step, Node) else self.step
@@ -193,39 +204,31 @@ class RangeValue(DataValue):
 class StringValue(DataValue):
     """Represents a string value in the AST."""
     value: str
-    def evaluate(self, df: DataFrameLike) -> str:
+    def evaluate(self, df: Structure) -> str:
         return self.value
-    
-    def symbolic(self) -> str:
-        return repr(self.value)
     
 @dataclass
 class QuotedStringValue(DataValue):
     """Represents a quoted string value in the AST."""
     value: str
-    def evaluate(self, df: DataFrameLike) -> str:
+    def evaluate(self, df: Structure) -> str:
         return self.value[1:-1]  # Remove quotes
     
-    def symbolic(self) -> str:
-        return repr(self.value)
-
 @dataclass
 class RegexValue(DataValue):
     """Represents a regex value in the AST."""
     value: str
-    def evaluate(self, df: DataFrameLike) -> str:
+    def evaluate(self, df: Structure) -> str:
         return self.value    
-    
-    def symbolic(self) -> str:
-        return f"RegexValue(value={self.value!r})"
 
 @dataclass
 class PropertySelection(Node):
+    _symbol: str = None
     field: Node  # always a Node now
     values: list
     def evaluate(self, df):
         col = self.field.evaluate(df)
-        mask = pd.Series(False, index=col.index)
+        mask = Array(False, index=col.index)
         for v in self.values:
             if isinstance(v, StringValue):
                 value = v.evaluate(df)
@@ -247,20 +250,17 @@ class PropertySelection(Node):
             else:
                 mask |= (col == v.evaluate(df) if isinstance(v, Node) else col == v)
         return mask
-    def symbolic(self):
-        return f"PropertySelection({self.field.symbolic()}, {self.values})"
 
 
 @dataclass
 class Regex(Node):
+    _symbol: str = None
     field: Node  # always a Node now
     pattern: str
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         col = self.field.evaluate(df)
         pattern = self.pattern.evaluate(df)
         return col.astype(str).str.contains(pattern, regex=True)
-    def symbolic(self) -> str:
-        return f"Regex({self.field.symbolic()}, {self.pattern!r})"
 
 @dataclass
 class Within(Node):
@@ -269,7 +269,7 @@ class Within(Node):
     distance: Node  # always a Node now
     target_mask: Node  # always a Node now
     mode: str = "within"  # "within" or "exwithin"
-    def evaluate(self, df: DataFrameLike) -> pd.Series:
+    def evaluate(self, df: Structure) -> Array:
         distance = self.distance.evaluate(df)
         mask = self.target_mask.evaluate(df)
         ref_pts = df.loc[mask, ['x','y','z']].values
@@ -277,19 +277,18 @@ class Within(Node):
         if ref_pts.size == 0:
             # “within” of an empty set → nobody matches
             result = np.zeros(len(df), dtype=bool)
-            return pd.Series(result, index=df.index)
+            return Array(result, index=df.index)
         d2 = ((pts[:,None,:] - ref_pts[None,:,:])**2).sum(axis=2)
         if self.mode == "within":
             result = (d2.min(axis=1)**0.5) <= distance
         else:  # exwithin
             result = (d2.min(axis=1)**0.5) > distance
-        return pd.Series(result, index=df.index)
-    def symbolic(self) -> str:
-        return f"{self.mode}({self.distance.symbolic()}, {self.target_mask.symbolic()})"
+        return Array(result, index=df.index)
 
 @dataclass
 class Macro(Node):
     """User-defined macro that expands into another AST subtree."""
+    _symbol: str = None
     name: str
     definition: Optional[Node] = None
 
@@ -298,14 +297,9 @@ class Macro(Node):
             raise RuntimeError("Macro definition not expanded.")
         return self.definition.evaluate(df)
 
-    def symbolic(self):
-        # Always expand macros before symbolic, for correct output
-        if self.definition is None:
-            raise RuntimeError("Macro definition not expanded for symbolic(). Expand macros before calling symbolic().")
-        return self.definition.symbolic()
-
 @dataclass
 class Same(Node):
+    _symbol: str = None
     short_circuit = False # Needs access to all points, so no short-circuiting
     field: Node  # always a Node now
     mask: Node
@@ -313,121 +307,108 @@ class Same(Node):
         col = self.field.evaluate(df)
         vals = col[df.index[self.mask.evaluate(df)]].unique()
         return col.isin(vals)
-    def symbolic(self):
-        return f"Same({self.field.symbolic()}, {self.mask.symbolic()})"
     
 @dataclass
 class SelectionKeyword(Node):
+    _symbol: str = None
     name: str
     def evaluate(self, df):
         if self.name == 'index':
-            return pd.Series(df.index, name='index', index=df.index)
+            return Array(df.index, name='index', index=df.index)
         if self.name not in df.columns:
             raise ValueError(f"Column '{self.name}' not found in DataFrame.")
         return df[self.name]
-    def symbolic(self):
-        return self.name
 
 @dataclass
 class Bonded(Node):
+    _symbol: str = None
     short_circuit = False # Needs access to all points, so no short-circuiting
     distance: float
     selection: Node
     def evaluate(self, df):
         raise NotImplementedError("Bonded selection not implemented.")
-    def symbolic(self):
-        return f"Bonded({self.distance!r}, {self.selection!r})"
 
 @dataclass
 class SequenceSelectionRegex(Node):
+    _symbol: str = None
     pattern: str
     def evaluate(self, df):
         raise NotImplementedError("Sequence selection regex not implemented.")
-    def symbolic(self):
-        return f"SequenceSelectionRegex({self.pattern!r})"
 
 @dataclass
 class SequenceSelection(Node):
+    _symbol: str = None
     sequence: str
     def evaluate(self, df):
         raise NotImplementedError("Sequence selection not implemented.")
-    def symbolic(self):
-        return f"SequenceSelection({self.sequence!r})"
 
 # Mathematical Operations
 @dataclass
 class Add(Node):
+    _symbol: str = "+"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) + self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) + ({self.right.symbolic()})"
 
 @dataclass
 class Sub(Node):
+    _symbol: str = "-"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) - self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) - ({self.right.symbolic()})"
 
 @dataclass
 class Mul(Node):
+    _symbol: str = "*"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) * self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) * ({self.right.symbolic()})"
 
 @dataclass
 class Div(Node):
+    _symbol: str = "/"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) / self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) / ({self.right.symbolic()})"
 
 @dataclass
 class FloorDiv(Node):
+    _symbol: str = "//"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) // self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) // ({self.right.symbolic()})"
 
 @dataclass
 class Mod(Node):
+    _symbol: str = "%"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) % self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) % ({self.right.symbolic()})"
 
 @dataclass
 class Pow(Node):
+    _symbol: str = "**"
     left: Node
     right: Node
     def evaluate(self, df):
         return self.left.evaluate(df) ** self.right.evaluate(df)
-    def symbolic(self):
-        return f"({self.left.symbolic()}) ** ({self.right.symbolic()})"
 
 @dataclass
 class Neg(Node):
+    _symbol: str = "-"
     value: Node
     def evaluate(self, df):
         return -self.value.evaluate(df)
-    def symbolic(self):
-        return f"-({self.value.symbolic()})"
 
 @dataclass
 class Func(Node):
+    _symbol: str = None
     name: str
     arg: Node
     def evaluate(self, df):
@@ -437,22 +418,20 @@ class Func(Node):
         if self.name == 'abs':
             return np.abs(v)
         return getattr(np, self.name)(v)
-    def symbolic(self):
-        return f"{self.name}({self.arg.symbolic()})"
 
 @dataclass
 class Number(Node):
-    value: Union[int, float]
+    _symbol: str = None
+    value: Union[int, float, str]
     def evaluate(self, df):
         v = self.value
         if '.' in v or 'e' in v or 'E' in v:
             return float(v)
         return int(v)
-    def symbolic(self):
-        return str(self.value)
 
 @dataclass
 class Const(Node):
+    _symbol: str = None
     name: str
     def evaluate(self, df):
         if self.name.lower() == 'pi':
@@ -461,5 +440,4 @@ class Const(Node):
             return math.e
         else:
             raise ValueError(f"Unknown constant: {self.name}")
-    def symbolic(self):
-        return self.name
+
