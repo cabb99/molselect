@@ -98,7 +98,7 @@ def compute_last_token_pattern(grammar_text: str) -> str:
 
 
 def main(file_out: Path | None = None):
-    from molselect.python.config import ConfigManager
+    from molselect.python.config import config
     from tempfile import NamedTemporaryFile
     """
     Generate the grammar.lark file from the template and JSON files.
@@ -107,10 +107,9 @@ def main(file_out: Path | None = None):
     """
 
     # Load configuration
-    cfg = ConfigManager()
-    TEMPLATE = cfg.grammar.path
-    MACROS_JSON = cfg.macros.paths
-    KEYWORDS_JSON = cfg.keywords.paths
+    TEMPLATE = config.grammar.path
+    MACROS_JSON = config.macros.paths
+    KEYWORDS_JSON = config.keywords.paths
 
     # load template + JSON
 

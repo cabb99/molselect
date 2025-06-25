@@ -334,6 +334,18 @@ class ConfigManager:
             f"macros={self.macros.paths!r}, "
             f"keywords={self.keywords.paths!r}>"
         )
+    
+    def reset(self, *args, **kwargs):
+        """
+        Reset the global config singleton to a new ConfigManager instance.
+        Optionally pass arguments to ConfigManager (grammar, macros, keywords).
+        Example:
+            config.reset(grammar='my.lark', macros=['a.json'])
+        """
+        global config
+        config = ConfigManager(*args, **kwargs)
+
+config = ConfigManager()
 
 if __name__ == "__main__":
     # Demo: Instantiate ConfigManager and print resolved paths
