@@ -37,10 +37,9 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
     names = []
     categories = []
     for category in tokens.keys():
-        
         cat_tokens = []
         # Add a comment for the category
-        lines.append(f"")
+        lines.append("")
         lines.append(f"// {category}")
         for token in tokens[category]:
             if token.startswith("_"):
@@ -48,9 +47,25 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
             name = token
             token_data = tokens[category][token]
             macro_token = f"{name.upper()}"
-            macro_rule = f'{macro_token} : "{name}"'
-            if "synonyms" in token_data and len(token_data["synonyms"]) > 0:
-                macro_rule += " | " + " | ".join(f'"{syn}"' for syn in token_data["synonyms"])
+            # Use regex_substitution dict if present, otherwise string literal
+            regex_dict = token_data.get("regex_substitution", {})
+            # Main name
+            if name in regex_dict:
+                main_rule = regex_dict[name]
+            else:
+                main_rule = f'"{name}"'
+            # Synonyms: use regex if present in dict, else string literal
+            syns = []
+            for syn in token_data.get("synonyms", []):
+                if syn in regex_dict:
+                    syns.append(regex_dict[syn])
+                elif syn.startswith("/") and syn.endswith("/"):
+                    syns.append(syn)
+                else:
+                    syns.append(f'"{syn}"')
+            macro_rule = f'{macro_token} : {main_rule}'
+            if syns:
+                macro_rule += " | " + " | ".join(syns)
             lines.append(macro_rule)
             names.append(macro_token)
             cat_tokens.append(macro_token)
