@@ -4,7 +4,7 @@ from molselect.python.builder import ASTBuilder
 from molselect.python.abstract import (
     And, Or, Not, Xor,
     Comparison, RangeValue as Range, Regex, PropertySelection,
-    Number, Const, SelectionKeyword, Macro
+    Number, Const, SelectionKeyword
 )
 
 def test_number_builder():
@@ -91,9 +91,6 @@ def test_macro_builder():
     assert getattr(node.field, 'name', None) == 'resname'
     values = [getattr(v, 'value', None) for v in node.values]
     assert 'HEM' in values and 'HEME' in values
-    # And it should not be a Macro node
-    from molselect.python.abstract import Macro
-    assert not isinstance(node, Macro)
 
 def test_to_node_with_tree():
     subtree = Tree('number', [Token('NUMBER','7')])
