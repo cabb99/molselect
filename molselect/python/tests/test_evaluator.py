@@ -20,10 +20,10 @@ def example_dataframe():
     return pd.DataFrame(data)
 
 @pytest.fixture
-def evaluator(example_dataframe):
+def evaluator():
     parser = SelectionParser()
     builder = ASTBuilder(parser)
-    backend = PandasStructure(example_dataframe)
+    backend = PandasStructure
     return Evaluator(backend, parser=parser, builder=builder)
 
 @pytest.mark.parametrize("description, sel", [
@@ -44,13 +44,13 @@ def evaluator(example_dataframe):
     ("Same residue as", "same resid as exwithin 4 of water"),
     ("Complex selection", "protein and (resname ALA or resname GLY) and not water"),
 ])
-def test_evaluator_cases(evaluator, description, sel):
+def test_evaluator_cases(evaluator, description, sel, example_dataframe):
     parser = evaluator.parser
     builder = evaluator.builder
     tree = parser.parse(sel, start_rule='start')
     ast = builder.transform(tree)
     symbolic = evaluator.symbolic(ast)
-    result = evaluator.evaluate(ast)
+    result = evaluator.evaluate(ast,structure=evaluator.backend(example_dataframe))
     assert symbolic is not None
     assert result is not None
     
