@@ -4,158 +4,10 @@ import numpy as np
 import pandas as pd
 from molselect.python import abstract
 from molselect.python.backends.pandas import PandasStructure, PandasArray
+from molselect.python.backends.pure import PureArray, PureStructure
+from molselect.python.backends.biopython import BiopythonArray, BiopythonStructure
 
-# Minimal mock Array/Mask implementation
-class MockArray:
-    def __init__(self, data, index=None, name=None):
-        self.data = list(data)
-        self.index = list(index) if index is not None else list(range(len(data)))
-        self.name = name
-    def __and__(self, other):
-        return MockArray([a and b for a, b in zip(self.data, other.data)], self.index)
-    def __or__(self, other):
-        return MockArray([a or b for a, b in zip(self.data, other.data)], self.index)
-    def __xor__(self, other):
-        return MockArray([bool(a) ^ bool(b) for a, b in zip(self.data, other.data)], self.index)
-    def __invert__(self):
-        return MockArray([not a for a in self.data], self.index)
-    def __eq__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a == b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a == other for a in self.data], self.index)
-    def __ne__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a != b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a != other for a in self.data], self.index)
-    def __lt__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a < b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a < other for a in self.data], self.index)
-    def __le__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a <= b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a <= other for a in self.data], self.index)
-    def __gt__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a > b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a > other for a in self.data], self.index)
-    def __ge__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a >= b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a >= other for a in self.data], self.index)
-    def __add__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a + b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a + other for a in self.data], self.index)
-    def __sub__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a - b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a - other for a in self.data], self.index)
-    def __mul__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a * b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a * other for a in self.data], self.index)
-    def __truediv__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a / b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a / other for a in self.data], self.index)
-    def __floordiv__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a // b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a // other for a in self.data], self.index)
-    def __mod__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a % b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a % other for a in self.data], self.index)
-    def __pow__(self, other):
-        if isinstance(other, MockArray):
-            return MockArray([a ** b for a, b in zip(self.data, other.data)], self.index)
-        return MockArray([a ** other for a in self.data], self.index)
-    def __neg__(self):
-        return MockArray([-a for a in self.data], self.index)
-    def astype(self, dtype):
-        if dtype == str:
-            return MockArray([str(a) for a in self.data], self.index)
-        if dtype == bool:
-            return MockArray([bool(a) for a in self.data], self.index)
-        return self
-    def copy(self):
-        return MockArray(self.data[:], self.index[:], self.name)
-    def set_by_index(self, index, value):
-        # Return a new MockArray with updated values
-        new_data = self.data[:]
-        for i, idx in enumerate(index):
-            pos = self.index.index(idx)
-            if isinstance(value, MockArray):
-                new_data[pos] = value.data[i]
-            else:
-                new_data[pos] = value
-        return MockArray(new_data, self.index, self.name)
-    @classmethod
-    def filled(cls, value, index):
-        return cls([value] * len(index), index)
-    def all(self):
-        return all(self.data)
-    def any(self):
-        return any(self.data)
-    def isin(self, values):
-        return MockArray([v in values for v in self.data], self.index)
-    def unique(self):
-        return list(set(self.data))
-    # def str_contains(self, pattern, regex=True):
-    #     import re
-    #     regex_obj = re.compile(pattern) if regex else None
-    #     if regex:
-    #         return MockArray([bool(regex_obj.search(str(x))) for x in self.data], self.index)
-    #     else:
-    #         return MockArray([pattern in str(x) for x in self.data], self.index)
-    def __getitem__(self, idx):
-        if isinstance(idx, MockArray):
-            return MockArray([d for d, m in zip(self.data, idx.data) if m], [i for i, m in zip(self.index, idx.data) if m])
-        if isinstance(idx, list):
-            return MockArray([self.data[i] for i in idx], [self.index[i] for i in idx])
-        return self.data[idx]
-    def __repr__(self):
-        return f"MockArray({self.data})"
-
-# Minimal mock Structure
-class MockStructure:
-    def __init__(self, df, index=None):
-        self.df = df
-        self.index = list(index) if index is not None else list(range(len(df['a'])))
-        self.columns = list(df.keys())
-    def get_property(self, key):
-        if key == 'index':
-            return MockArray(self.index, self.index, name='index')
-        return MockArray(self.df[key], self.index)
-    def select(self, mask):
-        # mask is a MockArray of bools
-        selected = {k: [v for v, m in zip(self.df[k], mask.data) if m] for k in self.df}
-        new_index = [i for i, m in zip(self.index, mask.data) if m]
-        # 3) construct a new MockStructure with the same indices
-        return MockStructure(selected, index=new_index)
-    def get_coordinates(self, columns):
-        # Return a numpy-like array for spatial tests
-        import numpy as np
-        arr = np.array([[self.df[c][i] for c in columns] for i in self.index])
-        return arr
-    def len(self):
-        return len(self.index)
-    def array_filled(self, value):
-        return MockArray.filled(value, self.index)
-    def array_values(self, values):
-        return MockArray(values, index=self.index)
-    def equals(self, other):
-        # Helper for test: compare .df dicts
-        return self.df == other.df
-    def minimum_pairwise_distances(self, target):
-        import numpy as np
-        coords1 = self.get_coordinates(['x', 'y', 'z'])
-        coords2 = target.get_coordinates(['x', 'y', 'z'])
-        d2 = ((coords1[:, None, :] - coords2[None, :, :]) ** 2).sum(axis=2)
-        return MockArray((d2 ** 0.5).min(axis=1), index=self.index)
-
-@pytest.fixture(params=["mock", "pandas"])
+@pytest.fixture(params=["pure", "pandas", "biopython"])
 def structure(request):
     df = {
         'a': [1, 2, 3, 4],
@@ -165,8 +17,26 @@ def structure(request):
         'z': [0.0, 0.0, 0.0, 0.0],
         's': ['foo', 'bar', 'foo', 'baz'],
     }
-    if request.param == "mock":
-        return MockStructure(df)
+    if request.param == "pure":
+        return PureStructure(df)
+    elif request.param == "biopython":
+        # Create a mock Biopython Structure for testing
+        from Bio.PDB import Structure, Model, Chain, Residue, Atom
+        struct = Structure.Structure("test")
+        model = Model.Model(0)
+        chain = Chain.Chain("A")
+        for i in range(4):
+            res = Residue.Residue((" ", i+1, " "), "GLY", " ")
+            atom = Atom.Atom("CA", [df['x'][i], df['y'][i], df['z'][i]], 1.0, 1.0, " ", "CA", i, "C")  # serial number = i
+            # Add extra test fields as attributes for extraction
+            atom.a = df['a'][i]
+            atom.b = df['b'][i]
+            atom.s = df['s'][i]
+            res.add(atom)
+            chain.add(res)
+        model.add(chain)
+        struct.add(model)
+        return BiopythonStructure(struct)
     else:
         return PandasStructure(pd.DataFrame(df))
 
@@ -179,13 +49,19 @@ def LiteralMask(request, structure):
             def evaluate(self, s):
                 return PandasArray(self.mask, index=s.index)
         return _LiteralMask
+    elif isinstance(structure, BiopythonStructure):
+        class _LiteralMask(abstract.Node):
+            def __init__(self, mask):
+                self.mask = mask
+            def evaluate(self, s):
+                return BiopythonArray(self.mask, index=s.index)
+        return _LiteralMask
     else:
         class _LiteralMask(abstract.Node):
             def __init__(self, mask):
                 self.mask = mask
             def evaluate(self, s):
-                # Return the mask on the same index as the structure
-                return MockArray([d for i,d in zip(self.mask.index,self.mask.data) if i in s.index], index=s.index)
+                return PureArray([d for i,d in zip(self.mask.index,self.mask.data) if i in s.index], index=s.index)
         return _LiteralMask
 
 @pytest.fixture
@@ -210,26 +86,50 @@ def LiteralValue():
 def array_type(structure):
     if isinstance(structure, PandasStructure):
         return PandasArray
+    elif isinstance(structure, BiopythonStructure):
+        return BiopythonArray
     else:
-        return MockArray
+        return PureArray
 
 # 1. Logical nodes
 def test_logical_nodes(structure, LiteralMask, array_type):
     s = structure
-    mask1 = array_type([True, False, True, False], index=s.index)
-    mask2 = array_type([False, True, True, False], index=s.index)
-    result_and = abstract.And(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
-    result_or = abstract.Or(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
-    result_xor = abstract.Xor(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
-    result_not = abstract.Not(LiteralMask(mask1)).evaluate(s)
-    expected_and = (mask1 & mask2)
-    expected_or = (mask1 | mask2)
-    expected_xor = (mask1 ^ mask2)
-    expected_not = (~mask1)
-    assert (result_and == expected_and).all()
-    assert (result_or == expected_or).all()
-    assert (result_xor == expected_xor).all()
-    assert (result_not == expected_not).all()
+    # Test several mask scenarios
+    mask_cases = [
+        ([True, False, True, False], [False, True, True, False]),
+        ([True, True, True, True], [False, False, False, False]),
+        ([False, False, False, False], [True, True, True, True]),
+        ([False, False, False, False], [False, False, False, False]),
+        ([True, True, False, False], [False, True, True, False]),
+    ]
+    for mask1_vals, mask2_vals in mask_cases:
+        mask1 = array_type(mask1_vals, index=s.index)
+        mask2 = array_type(mask2_vals, index=s.index)
+        result_and = abstract.And(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_or = abstract.Or(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_xor = abstract.Xor(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_not = abstract.Not(LiteralMask(mask1)).evaluate(s)
+        # Use numpy for expected logic
+        mask1_np = np.array(mask1_vals)
+        mask2_np = np.array(mask2_vals)
+        expected_and = mask1_np & mask2_np
+        expected_xor = mask1_np ^ mask2_np
+        expected_not = ~mask1_np
+        # AST short-circuit logic for OR
+        expected_or = np.ones_like(mask1_np, dtype=bool)
+        expected_or[~mask1_np] = mask2_np[~mask1_np]
+        # Get result arrays
+        def get_arr(x):
+            if hasattr(x, 'data'):
+                return np.array(x.data)
+            elif hasattr(x, 'values'):
+                return np.array(x.values)
+            else:
+                return np.array(x)
+        assert np.all(get_arr(result_and) == expected_and)
+        assert np.all(get_arr(result_or) == expected_or)
+        assert np.all(get_arr(result_xor) == expected_xor)
+        assert np.all(get_arr(result_not) == expected_not)
     assert abstract.All().evaluate(s).all()
     assert not abstract.None_().evaluate(s).any()
 
@@ -301,7 +201,7 @@ def test_selection_keyword(structure, array_type):
     if isinstance(result_index, PandasArray):
         expected_index = PandasArray(s.index, index=s.index, name='index')
     else:
-        expected_index = MockArray(s.index, name='index', index=s.index)
+        expected_index = PureArray(s.index, name='index', index=s.index)
     assert (result_index == expected_index).all()
 
 def test_range_value(structure, LiteralValue):
