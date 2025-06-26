@@ -14,17 +14,20 @@ class Node:
         raise NotImplementedError
     
     def symbolic(self) -> str:
-        # 1) If this node has a custom symbol and exactly two fields, render infix
-        if self._symbol and len(fields(self)) == 2:
-            left, right = (getattr(self, f.name) for f in fields(self))
+        # Exclude _symbol from field list for symbolic rendering
+        data_fields = [f for f in fields(self) if f.name != '_symbol']
+        # 1) If this node has a custom symbol and exactly two data fields, render infix
+        if self._symbol and len(data_fields) == 2:
+            left, right = (getattr(self, f.name) for f in data_fields)
             return f"({left.symbolic()}) {self._symbol} ({right.symbolic()})"
+
         # 2) If it’s a 1-arg prefix operator
-        if self._symbol and len(fields(self)) == 1:
-            (inner,) = (getattr(self, f.name) for f in fields(self))
+        if self._symbol and len(data_fields) == 1:
+            (inner,) = (getattr(self, f.name) for f in data_fields)
             return f"{self._symbol}({inner.symbolic()})"
-        # 3) Fallback: list out all dataclass fields by name
+        # 3) Fallback: list out all dataclass fields by name (excluding _symbol)
         parts = []
-        for f in fields(self):
+        for f in data_fields:
             v = getattr(self, f.name)
             if isinstance(v, Node):
                 parts.append(v.symbolic())
@@ -154,6 +157,12 @@ class Comparison(Node):
             return ops[op](left, right)
         except TypeError:
             return s.array_filled(False)
+
+    def symbolic(self) -> str:
+        # Custom symbolic for Comparison: always show as infix
+        left = self.field.symbolic() if isinstance(self.field, Node) else repr(self.field)
+        right = self.value.symbolic() if isinstance(self.value, Node) else repr(self.value)
+        return f"({left}) {self.op} ({right})"
 
 ## Data Values
 class DataValue(Node):
