@@ -541,6 +541,13 @@
         "short": "sulfur atoms",
         "description": "Sulfur atoms (S).",
         "definition": "name \"S*\""
+      },
+      "noh": {
+        "name": "noh",
+        "synonyms": [],
+        "short": "non-hydrogen atoms",
+        "description": "All atoms except hydrogen.",
+        "definition": "not name \"H*\""
       }
     }
   }

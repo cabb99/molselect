@@ -31,7 +31,7 @@ start: expr -> start
 
 ?and_expr: not_expr
          | and_expr _AND_OP not_expr   -> and_
-         | not_expr not_expr   -> and_
+         | and_expr not_expr           -> and_
 
 ?not_expr: _NOT_OP not_expr            -> not_
          | atom
