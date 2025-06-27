@@ -22,14 +22,14 @@
         "synonyms": ["is_protein"],
         "short": "all amino acids",
         "description": "All standard and non-standard amino acids (must have a CA atom).",
-        "definition": "std_aa or nonstd_aa"
+        "definition": "stdaa or nonstdaa"
       },
       "nucleic": {
         "name": "nucleic",
         "synonyms": ["is_nucleic"],
         "short": "all nucleic residues",
         "description": "All nucleobases, nucleotides, and nucleosides.",
-        "definition": "_nucleobase or _nucleotide or _nucleoside"
+        "definition": "nucleobase or nucleotide or nucleoside"
       },
       "dna": {
         "name": "dna",
@@ -239,10 +239,10 @@
     "residue_types_nonpolymer": {
       "hetero": {
         "name": "hetero",
-        "synonyms": [],
+        "synonyms": ["hetatm"],
         "short": "heteroatom",
-        "description": "Any heteroatom (placeholder, X is a generic symbol).",
-        "definition": "recname HETAM"
+        "description": "Any heteroatom.",
+        "definition": "not (protein or nucleic)"
       }
     },
     "residue_types_exposed": {
@@ -297,18 +297,6 @@
         "definition": "resname ARG GLN GLU HIS ILE LEU LYS MET PHE TRP TYR"
       }
     },
-    "residue_types_nucleobase": {
-      "nucleobase": {
-        "name": "nucleobase",
-        "synonyms": [],
-        "description": [
-          "Residues defined for the 'nucleobase' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['nucleobase']`.",
-          "Residues: ADE, CYT, GUN, THY, URA"
-        ],
-        "definition": "resname ADE CYT GUN THY URA"
-      }
-    },
     "residue_types_backbone": {
       "backbone": {
         "name": "backbone",
@@ -333,12 +321,15 @@
       "calpha": {
         "name": "calpha",
         "synonyms": ["ca"],
-        "short": "Cα atoms of protein residues",
+        "short": "Ca atoms of protein residues",
         "description": [
-          "Cα atoms of :term:`protein` residues, same as selection",
+          "Ca atoms of :term:`protein` residues, same as selection",
           "``'name CA and protein'``"
         ],
-        "definition": "name CA and protein"
+        "definition": "name CA and protein",
+        "regex_substitution": {
+           "ca": "/ca(?!rbon)\\b/"
+        }
       }
     },
     "residue_types_sidechain": {
@@ -454,18 +445,17 @@
         ],
         "definition": "structure S"
       }
-    }
-  },
-  "prody":{
-      "std_aa": {
-        "name": "std_aa",
+    },
+    "prody": {
+      "stdaa": {
+        "name": "stdaa",
         "synonyms": [],
         "short": "standard amino acids",
         "description": "The twenty standard amino acid residue names.",
         "definition": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL"
       },
-      "nonstd_aa": {
-        "name": "nonstd_aa",
+      "nonstdaa": {
+        "name": "nonstdaa",
         "synonyms": [],
         "short": "non-standard amino acids",
         "description": "Common non-standard amino acid residue names.",
@@ -497,15 +487,61 @@
         "synonyms": [],
         "short": "all amino acids",
         "description": "All standard and non-standard amino acids (must have a CA atom).",
-        "definition": "_std_aa or _nonstd_aa"
+        "definition": "_stdaa or _nonstdaa"
       },
       "prody_nucleic": {
         "name": "prody_protein",
         "synonyms": [],
         "short": "all nucleic residues",
         "description": "All nucleobases, nucleotides, and nucleosides.",
-        "definition": "_nucleobase or _nucleotide or _nucleoside"
+        "definition": "nucleobase or nucleotide or nucleoside"
       }
-          
+    },
+    "elements": {
+      "hydrogen": {
+        "name": "hydrogen",
+        "short": "hydrogen atoms",
+        "description": "Hydrogen atoms (H).",
+        "definition": "name \"H*\""
+      },
+      "carbon": {
+        "name": "carbon",
+        "synonyms": [],
+        "short": "carbon atoms",
+        "description": "Carbon atoms (C).",
+        "definition": "name \"C*\"",
+        "regex_substitution": {
+          "carbon": "/carbon\\b/"
+        }
+      },
+      "nitrogen": {
+        "name": "nitrogen",
+        "synonyms": [],
+        "short": "nitrogen atoms",
+        "description": "Nitrogen atoms (N).",
+        "definition": "name \"N*\""
+      },
+      "oxygen": {
+        "name": "oxygen",
+        "synonyms": [],
+        "short": "oxygen atoms",
+        "description": "Oxygen atoms (O).",
+        "definition": "name \"O*\""
+      },
+      "phosphorus": {
+        "name": "phosphorus",
+        "synonyms": [],
+        "short": "phosphorus atoms",
+        "description": "Phosphorus atoms (P).",
+        "definition": "name \"P*\""
+      },
+      "sulfur": {
+        "name": "sulfur",
+        "synonyms": [],
+        "short": "sulfur atoms",
+        "description": "Sulfur atoms (S).",
+        "definition": "name \"S*\""
+      }
+    }
   }
 }

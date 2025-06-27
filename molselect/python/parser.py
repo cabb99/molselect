@@ -95,7 +95,7 @@ class SelectionParser:
                 expanded.append(self.expand_macro(tok, depth + 1))
             else:
                 expanded.append(tok)
-        return ' '.join(expanded)
+        return f"({' '.join(expanded)})"
 
     def remove_macro(self, macro_name: str, category: str = 'Custom'):
         """

@@ -14,7 +14,11 @@ df = molscene.Scene.from_pdb('molselect/data/tests/pdb3mht.pdb')
 selector = Evaluator(PandasStructure)
 
 # Use the new parse method for simple selection
-result = selector.parse(df, 'water')
+result = selector.parse(df, 'hetatm')
 
 # Print the resulting DataFrame
 print(result.df)
+
+#Write the parser grammar to text for debugging purposes
+with open("parser_grammar.txt", "w") as f:
+    f.write(selector.parser.grammar)

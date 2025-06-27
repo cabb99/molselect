@@ -94,7 +94,7 @@
 
     "special_names": {
       "recname": {
-        "synonyms": ["atom", "hetatm"],
+        "synonyms": [],
         "type": "str",
         "short": "Record name.",
         "description": [
