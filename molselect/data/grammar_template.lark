@@ -190,7 +190,7 @@ bool_keyword: bool_universal | bool_macro | <<MACROS_NAMES>>
 _REGEXP_OP.1 : "=~"                 
 
 // Not
-_NOT_OP    : "not"  | "!"        
+_NOT_OP    : "not"  | /!(?!=)/        
 
 // LOGICAL OPERATORS
 _OR_OP     : "or"   | "||" | "|"
@@ -230,8 +230,8 @@ _SEQUENCE  : "sequence"
 // MATH OPERATORS
 _PLUS        : "+"           
 _MINUS       : "-"           
-_TIMES       : "*"           
-_DIV         : "/"           
+_TIMES       : /\*(?!\*)/           
+_DIV         : "/(?!/)"           
 _INTEGER_DIV : "//"          
 _MOD         : "%"           
 _POW         : "**" | "^"

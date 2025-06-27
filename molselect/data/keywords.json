@@ -9,13 +9,27 @@
           "Atom serial number (file-based). Unique for each atom in the molecule."
         ]
       },
+      "residue": {
+        "synonyms": [],
+        "type": "int",
+        "short": "Residue index (0-based).",
+        "description": [
+          "Residue index (0-based). Internal index for each residue."
+        ],
+        "regex_substitution": {
+          "residue": "/residue\\b/"
+        }
+      },
       "resid": {
         "synonyms": ["label_seq_id", "resseq", "resnum"],
         "type": "int",
         "short": "Residue sequence number (file-based).",
         "description": [
           "Residue sequence number (file-based). Numeric value assigned to residues, often increasing along the chain."
-        ]
+        ],
+        "regex_substitution": {
+          "resid": "/resid(?!ue)\\b/"
+        }
       },
       "chain": {
         "synonyms": ["chid", "chainid", "label_asym_id", "chainid"],
@@ -39,14 +53,6 @@
         "short": "Atom index (0-based).",
         "description": [
           "Atom index (0-based). Internal index for each atom."
-        ]
-      },
-      "residue": {
-        "synonyms": [],
-        "type": "int",
-        "short": "Residue index (0-based).",
-        "description": [
-          "Residue index (0-based). Internal index for each residue."
         ]
       },
       "fragment": {

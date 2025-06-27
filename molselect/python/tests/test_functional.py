@@ -246,6 +246,8 @@ def count_atoms_with_molscene(pdb_paths: list[str], selections: list[str]) -> di
                 for sel in selections:
                     result[(pdb_basename, sel)] = np.nan
                 continue
+            
+            df = df[df['model']==1]           
             for sel in selections:
                 try:
                     selection_result = selector.parse(df, sel)
@@ -283,24 +285,95 @@ def load_pdb_files():
     return pdb_files
 
 
-@pytest.mark.parametrize("backend", ["molscene", "vmd", "prody"])
-def test_count_atoms_backends(backend):
-    import pandas as pd
-    selections = load_selection_tests()
-    print(selections)
-    pdb_files = load_pdb_files()
-    if not pdb_files:
-        pytest.skip("No PDB or CIF files found for testing.")
-    if backend == "molscene":
-        result = count_atoms_with_molscene(pdb_files, selections)
-    elif backend == "vmd":
-        result = count_atoms_with_vmd(pdb_files, selections, tcl_script_path=None)
-    elif backend == "prody":
-        result = count_atoms_with_prody(pdb_files, selections)
-    else:
-        raise ValueError(f"Unknown backend: {backend}")
-    # Check that at least some results are not all NaN
-    counts = list(result.values())
-    assert any(pd.notna(c) and c != 0 for c in counts), f"All counts are NaN or zero for backend {backend}"
-    # Optionally: print a summary for debugging
-    print(f"Backend: {backend}, non-NaN counts: {sum(pd.notna(c) for c in counts)} / {len(counts)}")
+# @pytest.mark.parametrize("backend", ["molscene", "vmd", "prody"])
+# def test_count_atoms_backends(backend):
+#     import pandas as pd
+#     selections = load_selection_tests()
+#     print(selections)
+#     pdb_files = load_pdb_files()
+#     if not pdb_files:
+#         pytest.skip("No PDB or CIF files found for testing.")
+#     if backend == "molscene":
+#         result = count_atoms_with_molscene(pdb_files, selections)
+#     elif backend == "vmd":
+#         result = count_atoms_with_vmd(pdb_files, selections, tcl_script_path=None)
+#     elif backend == "prody":
+#         result = count_atoms_with_prody(pdb_files, selections)
+#     else:
+#         raise ValueError(f"Unknown backend: {backend}")
+#     # Check that at least some results are not all NaN
+#     counts = list(result.values())
+#     assert any(pd.notna(c) and c != 0 for c in counts), f"All counts are NaN or zero for backend {backend}"
+#     # Optionally: print a summary for debugging
+#     print(f"Backend: {backend}, non-NaN counts: {sum(pd.notna(c) for c in counts)} / {len(counts)}")
+
+
+import re
+PDB_FILES = load_pdb_files()
+SELECTIONS = load_selection_tests()
+
+@pytest.fixture(scope="session")
+def molscene_counts():
+    """Compute once per session."""
+    # keys are (basename, sel)
+    return count_atoms_with_molscene(PDB_FILES, SELECTIONS)
+
+@pytest.fixture(scope="session")
+def prody_counts():
+    return count_atoms_with_prody(PDB_FILES, SELECTIONS)
+
+@pytest.fixture(scope="session")
+def vmd_counts():
+    # pass tcl_script_path=None to auto-tempfile
+    return count_atoms_with_vmd(PDB_FILES, SELECTIONS, tcl_script_path=None)
+
+def _sanitize(sel: str) -> str:
+    # Turn your selection into a safe Python identifier
+    name = re.sub(r'[^0-9a-zA-Z]+', '_', sel).strip('_')
+    return name[:30]  # truncate if super long
+
+
+def _make_test_for(sel: str):
+    """
+    Return a single test function that closes over `sel` and is parametrized
+    over all pdb_paths.
+    """
+    @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
+    def test_molscene_vs_prody_or_vmd(self, pdb_path,
+                                      molscene_counts, prody_counts, vmd_counts):
+        basename = os.path.basename(pdb_path)
+        key = (basename, sel)
+
+        mol = molscene_counts[key]
+        pro = prody_counts[key]
+        vmd = vmd_counts[key]
+
+        # if both reference backends fail → check mol
+        if (pd.isna(pro) or np.isnan(pro)) and (pd.isna(vmd) or np.isnan(vmd)):
+            if pd.isna(mol) or np.isnan(mol):
+                pytest.fail(f"Selection '{sel}' unsupported by all: molscene, ProDy, and VMD on {basename}")
+            return  # pass if mol is not na
+
+        ok_pro = not (pd.isna(pro) or np.isnan(pro)) and mol == pro
+        ok_vmd = not (pd.isna(vmd) or np.isnan(vmd)) and mol == vmd
+
+        assert ok_pro or ok_vmd, (
+            f"{basename} | sel={sel!r}: molscene={mol!r} "
+            f"!= prody={pro!r} and != vmd={vmd!r}"
+        )
+
+    # give it a useful docstring so Test Explorer shows the full query
+    test_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd for selection: {sel!r}"
+    return test_molscene_vs_prody_or_vmd
+
+
+# Dynamically build one Test class per selection
+for sel in SELECTIONS:
+    safe = _sanitize(sel)
+    cls_name = f"Test_sel_{safe}"
+    # create an empty class
+    cls = type(cls_name, (object,), {})
+    # attach our generated test method
+    setattr(cls, "test_molscene", _make_test_for(sel))
+    # inject into module level so pytest will collect it
+    globals()[cls_name] = cls
