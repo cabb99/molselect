@@ -12,6 +12,7 @@ COMMENT: /#[^\n]*/
 %ignore COMMENT
 
 SINGLE_QUOTED_STRING : /'(?:\\.|[^'\\])*'/
+_BACKTICK : /`/
 
 // ---------------------------
 // LOGICAL OPERATIONS
@@ -66,11 +67,13 @@ property_selection.20: "(" math_expr ")" property_item+
                  | quoted_string_value
                  | string_value
                  | number_expr
+                 | _BACKTICK property_item _BACKTICK
 
 range_value: number_expr _TO number_expr     
            | number_expr _COLON number_expr  
            | number_expr _COLON number_expr _COLON number_expr
            | string_value _TO string_value
+           | _BACKTICK range_value _BACKTICK
 
 // Regex selection
 regex_selection: math_expr _REGEXP_OP regex_value
