@@ -247,7 +247,7 @@ def count_atoms_with_molscene(pdb_paths: list[str], selections: list[str]) -> di
                     result[(pdb_basename, sel)] = np.nan
                 continue
             
-            df = df[df['model']==1]
+            df = df[df['model']==1]           
             for sel in selections:
                 try:
                     selection_result = selector.parse(df, sel)
@@ -348,9 +348,11 @@ def _make_test_for(sel: str):
         pro = prody_counts[key]
         vmd = vmd_counts[key]
 
-        # if both reference backends fail → skip
+        # if both reference backends fail → check mol
         if (pd.isna(pro) or np.isnan(pro)) and (pd.isna(vmd) or np.isnan(vmd)):
-            pytest.skip(f"Selection '{sel}' unsupported by both ProDy and VMD on {basename}")
+            if pd.isna(mol) or np.isnan(mol):
+                pytest.fail(f"Selection '{sel}' unsupported by all: molscene, ProDy, and VMD on {basename}")
+            return  # pass if mol is not na
 
         ok_pro = not (pd.isna(pro) or np.isnan(pro)) and mol == pro
         ok_vmd = not (pd.isna(vmd) or np.isnan(vmd)) and mol == vmd
