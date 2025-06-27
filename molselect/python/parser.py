@@ -10,10 +10,10 @@ class SelectionParser:
     def __init__(self):
         self._build_parser_and_macros()
 
-    def _build_parser_and_macros(self, macros_dict=None):
+    def _build_parser_and_macros(self, macros_dict=None, keywords_dict=None):
         """
-        Internal method to build the grammar, initialize Lark, and update macro dicts.
-        If macros_dict is None, reload from config; otherwise, use the provided dict.
+        Internal method to build the grammar, initialize Lark, and update macro/keyword dicts.
+        If macros_dict or keywords_dict is None, reload from config; otherwise, use the provided dicts.
         """
         # Load grammar template
         grammar_template_path = config.grammar.path
@@ -31,13 +31,15 @@ class SelectionParser:
         self._macros_dict_full = macros_dict
 
         # Load keywords
-        keywords_dict = {}
-        for keyword_path in config.keywords.paths:
-            if not keyword_path.exists():
-                logger.warning(f"Keywords JSON file {keyword_path} does not exist, skipping.")
-                continue
-            logger.info(f"Loading keywords from {keyword_path}")
-            keywords_dict.update(load_json(keyword_path)["keywords"])
+        if keywords_dict is None:
+            keywords_dict = {}
+            for keyword_path in config.keywords.paths:
+                if not keyword_path.exists():
+                    logger.warning(f"Keywords JSON file {keyword_path} does not exist, skipping.")
+                    continue
+                logger.info(f"Loading keywords from {keyword_path}")
+                keywords_dict.update(load_json(keyword_path)["keywords"])
+        self._keywords_dict_full = keywords_dict
 
         # Build macro & keyword sections
         macros_block, macros_names = make_token_block(macros_dict, prefix='bool')
@@ -54,9 +56,9 @@ class SelectionParser:
         # Compute last‐token pattern
         last_token_pattern = compute_last_token_pattern(grammar_interim)
         # Final injection
-        grammar_final = grammar_interim.replace("<<LAST_TOKEN>>", last_token_pattern)
+        self.grammar = grammar_interim.replace("<<LAST_TOKEN>>", last_token_pattern)
         # Pass grammar text to Lark
-        self.lark = Lark(grammar_final, parser='lalr', propagate_positions=True, start=['start', 'expr'])
+        self.lark = Lark(self.grammar, parser='lalr', propagate_positions=True, start=['start', 'expr'])
 
         # Flatten macros for expansion (after grammar construction)
         flat_macros_dict = {}
@@ -70,7 +72,7 @@ class SelectionParser:
 
     def parse(self, text: str, start_rule: str = 'start') -> Tree:
         return self.lark.parse(text, start=start_rule)
-
+    
     def expand_macro(self, name: str, seen=None) -> str:
         """Expand a macro by name, recursively expanding any referenced macros."""
         if seen is None:
@@ -136,21 +138,59 @@ class SelectionParser:
         }
         self._build_parser_and_macros(macros_dict)
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    parser = SelectionParser()
-    example = "protein and (resid 10 to 20)"
-    print(f"Parsing example: {example!r}")
-    try:
-        tree = parser.parse(example)
-        print("Parse tree:")
-        print(tree.pretty())
-    except Exception as e:
-        print(f"Failed to parse: {e}")
+    def set_keyword(self, keyword_name: str, definition: str, synonyms: list = None, category: str = 'Custom', regex_substitution: dict = None):
+        """
+        Add or edit a keyword to the parser, rebuild the grammar, and re-initialize Lark.
+        category: The keyword category (e.g., 'residue').
+        keyword_name: The name of the keyword (e.g., 'ALA').
+        definition: The keyword definition string.
+        synonyms: Optional list of synonyms for the keyword.
+        regex_substitution: Optional dict mapping keyword_name and synonyms to regex patterns.
+        """
+        if synonyms is None:
+            synonyms = []
+        if regex_substitution is None:
+            regex_substitution = {}
+        macros_dict = getattr(self, '_macros_dict_full', None)
+        if macros_dict is None:
+            self._build_parser_and_macros()
+            macros_dict = self._macros_dict_full
+        keywords_dict = getattr(self, '_keywords_dict_full', None)
+        if keywords_dict is None:
+            keywords_dict = {}
+            for keyword_path in config.keywords.paths:
+                if not keyword_path.exists():
+                    continue
+                keywords_dict.update(load_json(keyword_path)["keywords"])
+        if category not in keywords_dict:
+            keywords_dict[category] = {}
+        keywords_dict[category][keyword_name] = {
+            'definition': definition,
+            'synonyms': synonyms,
+            'regex_substitution': regex_substitution
+        }
+        self._keywords_dict_full = keywords_dict
+        self._build_parser_and_macros(macros_dict, keywords_dict)
 
-    print("Available macros:")
-    for macro_name in parser.macros_dict.keys():
-        print(f" - {macro_name}")
-
-    print("Expanding macro 'protein':")
-    print(parser.expand_macro('protein'))
+    def remove_keyword(self, keyword_name: str, category: str = 'Custom'):
+        """
+        Remove a keyword from the parser by name and category, rebuild the grammar, and re-initialize Lark.
+        If the keyword or category does not exist, this is a no-op.
+        """
+        macros_dict = getattr(self, '_macros_dict_full', None)
+        if macros_dict is None:
+            self._build_parser_and_macros()
+            macros_dict = self._macros_dict_full
+        keywords_dict = getattr(self, '_keywords_dict_full', None)
+        if keywords_dict is None:
+            keywords_dict = {}
+            for keyword_path in config.keywords.paths:
+                if not keyword_path.exists():
+                    continue
+                keywords_dict.update(load_json(keyword_path)["keywords"])
+        if category in keywords_dict and keyword_name in keywords_dict[category]:
+            del keywords_dict[category][keyword_name]
+            if not keywords_dict[category]:
+                del keywords_dict[category]
+            self._keywords_dict_full = keywords_dict
+            self._build_parser_and_macros(macros_dict, keywords_dict)

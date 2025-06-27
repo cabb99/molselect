@@ -38,6 +38,7 @@ def test_add_and_remove_macro(parser):
         synonyms=["tm", "testm"],
         category="testcat",
     )
+
     # Should be available for parsing and expansion
     assert "testmacro" in parser.macros_dict
     assert parser.expand_macro("testmacro") == "resid 1"
@@ -72,3 +73,44 @@ def test_add_and_remove_macro(parser):
     import pytest
     with pytest.raises(Exception):
         parser.parse("testmacro")
+
+def test_add_and_remove_keyword(parser):
+    # Add a keyword
+    parser.set_keyword(
+        keyword_name="testkw",
+        definition="1",
+        synonyms=["tkw", "testk"],
+        category="testcat",
+    )
+    # Should parse using the new keyword in a property selection context
+    tree = parser.parse("testkw 1")
+    assert tree.data == 'start'
+    # Find property_selection in the tree
+    prop_sel = tree.children[0]
+    assert prop_sel.data == 'property_selection'
+    sel_kw = prop_sel.children[0]
+    assert sel_kw.data == 'selection_keyword'
+    assert sel_kw.children[0].type == 'TESTKW'
+    assert sel_kw.children[0].value == 'testkw'
+    # Should also parse using synonyms
+    tree_tkw = parser.parse("tkw 1")
+    prop_sel_tkw = tree_tkw.children[0]
+    sel_kw_tkw = prop_sel_tkw.children[0]
+    assert sel_kw_tkw.data == 'selection_keyword'
+    assert sel_kw_tkw.children[0].type == 'TESTKW'
+    assert sel_kw_tkw.children[0].value == 'tkw'
+    tree_testk = parser.parse("testk 1")
+    prop_sel_testk = tree_testk.children[0]
+    sel_kw_testk = prop_sel_testk.children[0]
+    assert sel_kw_testk.data == 'selection_keyword'
+    assert sel_kw_testk.children[0].type == 'TESTKW'
+    assert sel_kw_testk.children[0].value == 'testk'
+    # Remove the keyword
+    parser.remove_keyword("testkw", category="testcat")
+    import pytest
+    with pytest.raises(Exception):
+        parser.parse("testkw 1")
+    with pytest.raises(Exception):
+        parser.parse("tkw 1")
+    with pytest.raises(Exception):
+        parser.parse("testk 1")
