@@ -42,10 +42,10 @@ def test_add_and_remove_macro(parser):
 
     # Should be available for parsing and expansion
     assert "testmacro" in parser.macros_dict
-    assert parser.expand_macro("testmacro") == "resid 1"
+    assert parser.expand_macro("testmacro") == "(resid 1)"
     # Synonyms should also expand
-    assert parser.expand_macro("tm") == "resid 1"
-    assert parser.expand_macro("testm") == "resid 1"
+    assert parser.expand_macro("tm") == "(resid 1)"
+    assert parser.expand_macro("testm") == "(resid 1)"
     # Should parse using the new macro
     tree = parser.parse("testmacro")
     
@@ -139,6 +139,8 @@ def test_macro_circular_reference(parser):
 
     # Expanding D should not raise an error, as it does not create a circular reference
     expanded_d = parser.expand_macro("A")
-    assert expanded_d == "none or none"
+    assert expanded_d == "(((none)) or (none))"
+
+    
     
 
