@@ -1,5 +1,6 @@
 import pytest
 from molselect.python.parser import SelectionParser
+from molselect.python.errors import *
 
 @pytest.fixture
 def parser():
@@ -27,7 +28,7 @@ def test_expand_macro_existing(parser):
         pytest.skip("No macros available to test.")
 
 def test_expand_macro_nonexistent(parser):
-    with pytest.raises(ValueError):
+    with pytest.raises(MolSelectMacroError):
         parser.expand_macro("nonexistent_macro")
 
 def test_add_and_remove_macro(parser):
@@ -114,3 +115,30 @@ def test_add_and_remove_keyword(parser):
         parser.parse("tkw 1")
     with pytest.raises(Exception):
         parser.parse("testk 1")
+
+def test_macro_circular_reference(parser):
+    # Add three macros with circular references
+    parser.set_macro("A", definition="B", category="circ")
+    parser.set_macro("B", definition="C", category="circ")
+    parser.set_macro("C", definition="A", category="circ")
+    # Expanding any of them should raise a ValueError for circular reference
+    import pytest
+    with pytest.raises(MolSelectMacroError):
+        parser.expand_macro("A")
+        print("Expanded A:", parser.expand_macro("A"))
+    with pytest.raises(MolSelectMacroError):
+        parser.expand_macro("B")
+        print("Expanded B:", parser.expand_macro("B"))
+    with pytest.raises(MolSelectMacroError):
+        parser.expand_macro("C")
+        print("Expanded C:", parser.expand_macro("C"))
+
+    parser.set_macro("A", definition="B or C", category="circ")
+    parser.set_macro("B", definition="C", category="circ")
+    parser.set_macro("C", definition="none", category="circ")
+
+    # Expanding D should not raise an error, as it does not create a circular reference
+    expanded_d = parser.expand_macro("A")
+    assert expanded_d == "none or none"
+    
+

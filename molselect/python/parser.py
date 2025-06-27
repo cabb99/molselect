@@ -2,11 +2,14 @@ from lark import Lark, Tree
 import logging
 from molselect.python.config import config
 from molselect.python.grammar import load_json, make_token_block, compute_last_token_pattern
+from molselect.python.errors import MolSelectMacroError
 
 logger = logging.getLogger(__name__)
 
 class SelectionParser:
     """Parses selection strings to parse trees using Lark."""
+    MAX_MACRO_DEPTH = 10
+
     def __init__(self):
         self._build_parser_and_macros()
 
@@ -73,24 +76,25 @@ class SelectionParser:
     def parse(self, text: str, start_rule: str = 'start') -> Tree:
         return self.lark.parse(text, start=start_rule)
     
-    def expand_macro(self, name: str, seen=None) -> str:
-        """Expand a macro by name, recursively expanding any referenced macros."""
-        if seen is None:
-            seen = set()
+    def expand_macro(self, name: str, depth: int = 0) -> str:
+        if depth > self.MAX_MACRO_DEPTH:
+            raise MolSelectMacroError(
+                name,
+                f"Macro expansion exceeded maximum depth of {self.MAX_MACRO_DEPTH}"
+            )
         if name not in self.macros_dict:
-            raise ValueError(f"Macro {name!r} not defined")
-        expr = self.macros_dict[name]
-        tokens = expr.split()
+            raise MolSelectMacroError(name, f"Macro {name!r} not defined")
+
+        tokens = self.macros_dict[name].split()
         expanded = []
-        for token in tokens:
-            macro_key = token[1:] if token.startswith('@') else token
-            if macro_key in self.macros_dict and macro_key not in seen:
-                seen.add(macro_key)
-                expanded_sub = self.expand_macro(macro_key, seen)
-                expanded.append(expanded_sub)
-                seen.remove(macro_key)
+        for tok in tokens:
+            if tok.startswith('@'):
+                sub = tok[1:]
+                expanded.append(self.expand_macro(sub, depth + 1))
+            elif tok in self.macros_dict:
+                expanded.append(self.expand_macro(tok, depth + 1))
             else:
-                expanded.append(token)
+                expanded.append(tok)
         return ' '.join(expanded)
 
     def remove_macro(self, macro_name: str, category: str = 'Custom'):
