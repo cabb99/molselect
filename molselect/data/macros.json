@@ -1,41 +1,6 @@
 {
   "macros": {
     "hidden": {
-      "_std_aa": {
-        "name": "_std_aa",
-        "synonyms": [],
-        "short": "standard amino acids",
-        "description": "The twenty standard amino acid residue names.",
-        "definition": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL"
-      },
-      "_nonstd_aa": {
-        "name": "_nonstd_aa",
-        "synonyms": [],
-        "short": "non-standard amino acids",
-        "description": "Common non-standard amino acid residue names.",
-        "definition": "resname ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB"
-      },
-      "_nucleobase": {
-        "name": "_nucleobase",
-        "synonyms": [],
-        "short": "A, G, C, T, U bases",
-        "description": "Purine and pyrimidine nucleobases (adenine, guanine, cytosine, thymine, uracil).",
-        "definition": "resname ADE GUN CYT THY URA"
-      },
-      "_nucleotide": {
-        "name": "_nucleotide",
-        "synonyms": [],
-        "short": "nucleotides",
-        "description": "Mono- and deoxy-nucleotides (A, C, G, T, U variants).",
-        "definition": "resname DA DC DG DT DU A C G T U"
-      },
-      "_nucleoside": {
-        "name": "_nucleoside",
-        "synonyms": [],
-        "short": "nucleosides",
-        "description": "All recognized nucleosides and their phosphate derivatives.",
-        "definition": "resname ADN AMP ADP ATP AGS CMP A2P A3P CTN C2P C3P C5P CDP CTP GMP 5GP GDP GTP THM TMP TPP TTP URI UMP UDP UTP"
-      },
       "_pdb_ions": {
         "name": "_pdb_ions",
         "synonyms": [],
@@ -57,7 +22,7 @@
         "synonyms": ["is_protein"],
         "short": "all amino acids",
         "description": "All standard and non-standard amino acids (must have a CA atom).",
-        "definition": "_std_aa or _nonstd_aa"
+        "definition": "std_aa or nonstd_aa"
       },
       "nucleic": {
         "name": "nucleic",
@@ -95,7 +60,7 @@
             "",
             "_Note_: HH0, OHH, and SOL are omitted due to naming conflicts."
           ],
-          "definition": "resname HOH DOD WAT TIP3 H2O OH2 TIP TIP2 TIP4"
+          "definition": "resname HOH DOD WAT TIP3 H2O OH2 TIP TIP2 TIP4 HH0 OHH SOL"
       },
       "aminoacid": {
         "name": "amino",
@@ -103,6 +68,13 @@
         "short": "aminoacid residues",
         "description": "A residue with atoms named C, N, CA, and O",
         "definition": "(same residue as name C) and (same residue as name N) and (same residue as name CA) and (same residue as name O)"
+      },
+      "vmd_nucleic": {
+        "name": "amino",
+        "synonyms": [],
+        "short": "nucleic residues",
+        "description": "A residue with atoms named C, N, CA, and O",
+        "definition": "(same residue as name P) and (same residue as name O1P) and (same residue as name O2P) and (((same residue as name \"C3'\") and (same residue as name \"C4'\") and (same residue as name \"C5'\") and (same residue as name \"O3'\") and (same residue as name \"O5'\")) or ((same residue as name \"C3*\") and (same residue as name \"C4*\") and (same residue as name \"C5*\") and (same residue as name \"O3*\") and (same residue as name \"O5*\")))"
       },
       "lipid": {
         "name": "lipid",
@@ -160,7 +132,7 @@
         "synonyms": [],
         "short": "aromatic residues",
         "description": "Aromatic amino acids: HIS, PHE, TRP, TYR.",
-        "definition": "resname HIS PHE TRW TYR"
+        "definition": "resname HIS PHE TRP TYR"
       },
       "aliphatic": {
         "name": "aliphatic",
@@ -229,7 +201,7 @@
         "synonyms": [],
         "short": "cyclic residues",
         "description": "Cyclic amino acids: HIS, PHE, PRO, TRP, TYR.",
-        "definition": "resname HIS PHE PRO TRW TYR"
+        "definition": "resname HIS PHE PRO TRP TYR"
       }
     },
     "residue_types_nucleotide_size": {
@@ -237,15 +209,15 @@
         "name": "purine",
         "synonyms": [],
         "short": "purine bases",
-        "description": "Purine nucleobases: DA, A, DG, G.",
-        "definition": "resname DA A DG G"
+        "description": "Purine nucleobases: DA, A, DG, G, ADE, GUA.",
+        "definition": "resname DA A DG G ADE GUA"
       },
       "pyrimidine": {
         "name": "pyrimidine",
         "synonyms": [],
         "short": "pyrimidine bases",
-        "description": "Pyrimidine nucleobases: DC, C, DT, T, DU, U.",
-        "definition": "resname DC C DT T DU U"
+        "description": "Pyrimidine nucleobases: DC, C, DT, T, DU, U, CYT, THY, URI.",
+        "definition": "resname DC C DT T DU U CYT THY URI"
       }
     },
     "residue_types_nucleotide_pairs": {
@@ -310,9 +282,9 @@
         "description": [
           "Residues defined for the 'medium' flag in ProDy",
           "Automatically extracted from `prody.flags.DEFAULTS['medium']`.",
-          "Residues: ASN, ASP, CYS, PRO, THR, VAL"
+          "Residues: ASN, ASP, CYS, PRO, THR, VAL, ASX, PCA, HYP"
         ],
-        "definition": "resname ASN ASP CYS PRO THR VAL"
+        "definition": "resname ASN ASP CYS PRO THR VAL ASX PCA HYP"
       },
       "large": {
         "name": "large",
@@ -346,7 +318,7 @@
           "Automatically extracted from `prody.flags.DEFAULTS['backbone']`.",
           "Residues: C, CA, N, O"
         ],
-        "definition": "name C CA N O"
+        "definition": "(protein and name C CA N O) or (nucleic and name P O1P O2P \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" \"C3*\" \"C4*\" \"C5*\" \"O3*\" \"O5*\")"
       },
       "backbonefull": {
         "name": "backbonefull",
@@ -356,7 +328,7 @@
           "Automatically extracted from `prody.flags.DEFAULTS['backbonefull']`.",
           "Atoms: C, CA, H, H1, H2, H3, N, O, OXT"
         ],
-        "definition": "name C CA H H1 H2 H3 N O OXT"
+        "definition": "(protein and name C CA H H1 H2 H3 N O OXT)"
       },
       "calpha": {
         "name": "calpha",
@@ -483,5 +455,57 @@
         "definition": "structure S"
       }
     }
+  },
+  "prody":{
+      "std_aa": {
+        "name": "std_aa",
+        "synonyms": [],
+        "short": "standard amino acids",
+        "description": "The twenty standard amino acid residue names.",
+        "definition": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL"
+      },
+      "nonstd_aa": {
+        "name": "nonstd_aa",
+        "synonyms": [],
+        "short": "non-standard amino acids",
+        "description": "Common non-standard amino acid residue names.",
+        "definition": "resname ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB"
+      },
+      "nucleobase": {
+        "name": "nucleobase",
+        "synonyms": [],
+        "short": "A, G, C, T, U bases",
+        "description": "Purine and pyrimidine nucleobases (adenine, guanine, cytosine, thymine, uracil).",
+        "definition": "resname ADE GUN CYT THY URA"
+      },
+      "nucleotide": {
+        "name": "nucleotide",
+        "synonyms": [],
+        "short": "nucleotides",
+        "description": "Mono- and deoxy-nucleotides (A, C, G, T, U variants).",
+        "definition": "resname DA DC DG DT DU A C G T U"
+      },
+      "nucleoside": {
+        "name": "nucleoside",
+        "synonyms": [],
+        "short": "nucleosides",
+        "description": "All recognized nucleosides and their phosphate derivatives.",
+        "definition": "resname ADN AMP ADP ATP AGS CMP A2P A3P CTN C2P C3P C5P CDP CTP GMP 5GP GDP GTP THM TMP TPP TTP URI UMP UDP UTP"
+      },
+      "prody_protein": {
+        "name": "prody_protein",
+        "synonyms": [],
+        "short": "all amino acids",
+        "description": "All standard and non-standard amino acids (must have a CA atom).",
+        "definition": "_std_aa or _nonstd_aa"
+      },
+      "prody_nucleic": {
+        "name": "prody_protein",
+        "synonyms": [],
+        "short": "all nucleic residues",
+        "description": "All nucleobases, nucleotides, and nucleosides.",
+        "definition": "_nucleobase or _nucleotide or _nucleoside"
+      }
+          
   }
 }
