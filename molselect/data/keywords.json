@@ -10,7 +10,7 @@
         ]
       },
       "resid": {
-        "synonyms": ["label_seq_id", "resseq"],
+        "synonyms": ["label_seq_id", "resseq", "resnum"],
         "type": "int",
         "short": "Residue sequence number (file-based).",
         "description": [
