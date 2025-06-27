@@ -8,24 +8,31 @@ logger = logging.getLogger(__name__)
 class SelectionParser:
     """Parses selection strings to parse trees using Lark."""
     def __init__(self):
-        # Load configuration
-        grammar_template_path = config.grammar.path
-        macros_paths = config.macros.paths
-        keywords_paths = config.keywords.paths
+        self._build_parser_and_macros()
 
-        # Load template and JSON
+    def _build_parser_and_macros(self, macros_dict=None):
+        """
+        Internal method to build the grammar, initialize Lark, and update macro dicts.
+        If macros_dict is None, reload from config; otherwise, use the provided dict.
+        """
+        # Load grammar template
+        grammar_template_path = config.grammar.path
         grammar_template = grammar_template_path.read_text(encoding='utf-8')
 
-        macros_dict = {}
-        for macro_path in macros_paths:
-            if not macro_path.exists():
-                logger.warning(f"Macros JSON file {macro_path} does not exist, skipping.")
-                continue
-            logger.info(f"Loading macros from {macro_path}")
-            macros_dict.update(load_json(macro_path)["macros"])
+        # Load macros
+        if macros_dict is None:
+            macros_dict = {}
+            for macro_path in config.macros.paths:
+                if not macro_path.exists():
+                    logger.warning(f"Macros JSON file {macro_path} does not exist, skipping.")
+                    continue
+                logger.info(f"Loading macros from {macro_path}")
+                macros_dict.update(load_json(macro_path)["macros"])
+        self._macros_dict_full = macros_dict
 
+        # Load keywords
         keywords_dict = {}
-        for keyword_path in keywords_paths:
+        for keyword_path in config.keywords.paths:
             if not keyword_path.exists():
                 logger.warning(f"Keywords JSON file {keyword_path} does not exist, skipping.")
                 continue
@@ -44,12 +51,12 @@ class SelectionParser:
             .replace("<<KEYWORDS>>", keywords_block)
             .replace("<<KEYWORDS_NAMES>>", keywords_names)
         )
-
         # Compute last‐token pattern
         last_token_pattern = compute_last_token_pattern(grammar_interim)
-
         # Final injection
         grammar_final = grammar_interim.replace("<<LAST_TOKEN>>", last_token_pattern)
+        # Pass grammar text to Lark
+        self.lark = Lark(grammar_final, parser='lalr', propagate_positions=True, start=['start', 'expr'])
 
         # Flatten macros for expansion (after grammar construction)
         flat_macros_dict = {}
@@ -60,9 +67,6 @@ class SelectionParser:
                 for syn in macro_obj.get("synonyms", []):
                     flat_macros_dict[syn] = definition
         self.macros_dict = flat_macros_dict
-
-        # Pass grammar text to Lark
-        self.lark = Lark(grammar_final, parser='lalr', propagate_positions=True, start=['start', 'expr'])
 
     def parse(self, text: str, start_rule: str = 'start') -> Tree:
         return self.lark.parse(text, start=start_rule)
@@ -86,6 +90,51 @@ class SelectionParser:
             else:
                 expanded.append(token)
         return ' '.join(expanded)
+
+    def remove_macro(self, macro_name: str, category: str = 'Custom'):
+        """
+        Remove a macro from the parser by name and category, rebuild the grammar, and re-initialize Lark.
+        If the macro or category does not exist, this is a no-op.
+        """
+        macros_dict = getattr(self, '_macros_dict_full', None)
+        if macros_dict is None:
+            self._build_parser_and_macros()
+            macros_dict = self._macros_dict_full
+        if category in macros_dict and macro_name in macros_dict[category]:
+            del macros_dict[category][macro_name]
+            # Remove category if empty
+            if not macros_dict[category]:
+                del macros_dict[category]
+            self._build_parser_and_macros(macros_dict)
+
+    def set_macro(self, macro_name: str, definition: str, synonyms: list = None, category: str = 'Custom', regex_substitution: dict = None):
+        """
+        Add or edit a macro to the parser, rebuild the grammar, and re-initialize Lark.
+        category: The macro category (e.g., 'biomolecule').
+        macro_name: The name of the macro (e.g., 'protein').
+        definition: The macro definition string.
+        synonyms: Optional list of synonyms for the macro.
+        regex_substitution: Optional dict mapping macro_name and synonyms to regex patterns.
+        
+        Note: If the macro name starts with '_', it will be treated as a hidden macro and not included in the grammar.
+        This allows for internal macros that can be used for recursion or other purposes without being exposed in the grammar.
+        """
+        if synonyms is None:
+            synonyms = []
+        if regex_substitution is None:
+            regex_substitution = {}
+        macros_dict = getattr(self, '_macros_dict_full', None)
+        if macros_dict is None:
+            self._build_parser_and_macros()
+            macros_dict = self._macros_dict_full
+        if category not in macros_dict:
+            macros_dict[category] = {}
+        macros_dict[category][macro_name] = {
+            'definition': definition,
+            'synonyms': synonyms,
+            'regex_substitution': regex_substitution
+        }
+        self._build_parser_and_macros(macros_dict)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
