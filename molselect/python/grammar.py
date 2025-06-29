@@ -104,8 +104,9 @@ def compute_last_token_pattern(grammar_text: str) -> str:
         r"""(?![-'"()])"""  # not starting with these punctuations
         rf"""(?!(?:{kw_pat})\b)"""  # not a reserved word
         r"""(?!\d+(?:\.\d*)?(?:[eE][+-]?\d+)?\b)"""  # not a number
-        r"(?=[A-Za-z])"  # must start with a letter
+        r"(?=[A-Za-z_])"  # must start with a letter or underscore
         r"""[^()'"\s]+"""  # match token
+        r"""(?:['*])?"""   # optionally end with ' or *"""
     )
 
     last_token_pattern = last_token_pattern.replace('/', r'\/')

@@ -56,7 +56,7 @@
         ]
       },
       "fragment": {
-        "synonyms": ["chindex", "chain_index", "frag_index"],
+        "synonyms": ["chindex", "chain_index", "frag_index", "fragindex"],
         "type": "int",
         "short": "Chain index (0-based).",
         "description": [
