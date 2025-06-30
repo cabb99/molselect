@@ -77,7 +77,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -175,3 +175,106 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+
+
+
+# -- Generate keyword reference table --------------------------------------
+import os
+import json
+# Create keywords table:
+def generate_keyword_table_rst(app):
+    # 1) locate your JSON (adjust path as needed)
+    src = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir,  'molselect', 'data', "keywords.json"))
+    # 2) output file under docs/
+    dst = os.path.join(os.path.dirname(__file__), "keywords.rst")
+
+    data = json.load(open(src, encoding="utf-8"))
+    lines = []
+    lines.append("Keyword Reference")
+    lines.append("=================")
+    lines.append("")
+    for category, kwmap in data["keywords"].items():
+        # section header
+        lines.append(category)
+        lines.append("-" * len(category))
+        # keep this blank line indented so it's still inside the list-table directive block
+        lines.append("   ")
+        lines.append(".. list-table::")
+        lines.append("   :header-rows: 1")
+        lines.append("   :widths: 15 8 15 20 40")
+        # again, indent the blank line
+        lines.append("   ")
+        # multi-line header
+        lines.append("   * - **Keyword**")
+        lines.append("     - **Type**")
+        lines.append("     - **Synonyms**")
+        lines.append("     - **Short description**")
+        lines.append("     - **Description**")
+        # each keyword
+        for name, meta in kwmap.items():
+            syn = ", ".join(meta.get("synonyms", [])) or "—"
+            short = meta.get("short", "").replace("\n", " ")
+            desc  = " ".join(meta.get("description", [])).replace("\n", " ")
+            lines.append(f"   * - ``{name}``")
+            lines.append(f"     - ``{meta['type']}``")
+            lines.append(f"     - {syn}")
+            lines.append(f"     - {short}")
+            lines.append(f"     - {desc}")
+        lines.append("")
+    # write out
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+def generate_keyword_rst(app):
+    import os, json
+
+    src = os.path.abspath(os.path.join(
+        os.path.dirname(__file__),
+        os.pardir,
+        'molselect', 'data',
+        'keywords.json'
+    ))
+    dst = os.path.join(os.path.dirname(__file__), 'keywords.rst')
+    data = json.load(open(src, encoding='utf-8'))
+
+    lines = [
+        "Keyword Reference",
+        "=================",
+        "",
+    ]
+
+    for category, kwmap in data["keywords"].items():
+        # Category heading
+        lines.append(category)
+        lines.append('-' * len(category))
+        lines.append('')
+
+        # Start glossary
+        lines.append('.. glossary::')
+        lines.append('')
+
+        for name, meta in kwmap.items():
+            # build "[syn1, syn2]" or empty
+            syns = meta.get("synonyms", [])
+            syns = [f'*{syn}*' for syn in syns]
+            syn_str = f"{', '.join(syns)}" if syns else ''
+
+            # Term line: name + synonyms + (type)
+            if syn_str:
+                lines.append(f"    **{name}**, {syn_str} (``{meta['type']}``)")
+            else:
+                lines.append(f"    **{name}** (``{meta['type']}``)")
+            for paragraph in meta.get("description", []):
+                lines.append(f"        {paragraph}")
+            lines.append('')  # blank line between entries
+
+        lines.append('')  # extra blank after category
+
+    with open(dst, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+# Connect the function to the Sphinx app       
+def setup(app):
+    # run once, before docs build
+    app.connect("builder-inited", generate_keyword_rst)
