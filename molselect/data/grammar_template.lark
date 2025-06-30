@@ -12,40 +12,40 @@ COMMENT: /#[^\n]*/
 %ignore COMMENT
 
 SINGLE_QUOTED_STRING : /'(?:\\.|[^'\\])*'/
-_BACKTICK : /`/
+TRIPLE_SINGLE_QUOTED_STRING : /'''(?:[\s\S])*?'''/
+TRIPLE_DOUBLE_QUOTED_STRING : /"""(?:[\s\S])*?"""/
 
 // ---------------------------
-// LOGICAL OPERATIONS
+// LOGICAL OPERATIONS (COMBINES MASKS)
 // ---------------------------
 // (OR < XOR < AND < NOT)
 
-start: expr -> start
+start: expr
 
 ?expr: or_expr
 
 ?or_expr: xor_expr
-        | or_expr _OR_OP xor_expr      -> or_
+        | or_expr _OR_OP xor_expr               -> or_
 
 ?xor_expr: and_expr
-         | xor_expr _XOR_OP and_expr   -> xor_
+         | xor_expr _XOR_OP and_expr            -> xor_
 
 ?and_expr: not_expr
-         | and_expr _AND_OP not_expr   -> and_
-         | and_expr not_expr           -> and_
+         | and_expr _AND_OP? not_expr           -> and_
 
-?not_expr: _NOT_OP not_expr            -> not_
+?not_expr: _NOT_OP not_expr                     -> not_
          | atom
 
 ?atom: "(" expr ")"
      | selection
 
 // --------------------------
-// Selection Grammar
+// Selection Grammar (CREATES MASKS)
 // --------------------------
 
 ?selection: bool_keyword
-          | property_selection
           | comparison_selection
+          | property_selection
           | regex_selection
           | within_selection
           | bonded_selection
@@ -54,26 +54,25 @@ start: expr -> start
           | "(" selection ")"
 
 //Range selection
-comparison_selection.10: math_or_number_expr (comparison_op math_or_number_expr)+
+comparison_selection: math_or_number_expr (comparison_op math_or_number_expr)+
 
 ?math_or_number_expr: math_expr | number_expr | STRING_VALUE
 
 // List-or-range
-property_selection.20: "(" math_expr ")" property_item+                 
-                     | selection_keyword property_item+                
+property_selection: math_expr _IN? property_item+                        
 
-?property_item.10: range_value
-                 | regex_value
-                 | quoted_string_value
-                 | string_value
-                 | number_expr
-                 | _BACKTICK property_item _BACKTICK
+?property_item: range_value
+              | regex_value
+              | quoted_string_value
+              | string_value
+              | number_expr
+              | "`" property_item "`"
 
 range_value: number_expr _TO number_expr     
            | number_expr _COLON number_expr  
            | number_expr _COLON number_expr _COLON number_expr
            | string_value _TO string_value
-           | _BACKTICK range_value _BACKTICK
+           | "`" range_value "`"
 
 // Regex selection
 regex_selection: math_expr _REGEXP_OP regex_value
@@ -94,78 +93,78 @@ same_selection: _SAME selection_keyword _AS expr
 
 // Selection values
 string_value: STRING_VALUE
-quoted_string_value: SINGLE_QUOTED_STRING
-regex_value: ESCAPED_STRING
-
-
+quoted_string_value: SINGLE_QUOTED_STRING | TRIPLE_SINGLE_QUOTED_STRING
+regex_value: ESCAPED_STRING | TRIPLE_DOUBLE_QUOTED_STRING
 
 //───────────────────────────────────────────────────────────────────────────────
-// Purely arithmetic sub-grammar (no selection_keyword ever):
+// Purely arithmetic sub-grammar (CREATES NUMBERS):
 //───────────────────────────────────────────────────────────────────────────────
 ?number_expr: num_sum
 
-?num_sum: num_sum _PLUS num_term        -> add
-        | num_sum _MINUS num_term       -> sub
+?num_sum: num_sum _PLUS num_term                -> add
+        | num_sum _MINUS num_term               -> sub
         | num_term
 
-?num_term: num_term _TIMES num_factor       -> mul
-         | num_term _DIV num_factor         -> truediv
-         | num_term _INTEGER_DIV num_factor -> floordiv
-         | num_term _MOD num_factor         -> mod
+?num_term: num_term _TIMES num_factor           -> mul
+         | num_term _DIV num_factor             -> truediv
+         | num_term _INTEGER_DIV num_factor     -> floordiv
+         | num_term _MOD num_factor             -> mod
          | num_factor
 
-?num_factor: num_factor _POW num_primary -> pow
+?num_factor: num_factor _POW num_primary        -> pow
            | num_primary
 
-?num_primary: NUMBER                      -> number
-            | constant                    -> const
-            | "-" num_primary             -> neg
+?num_primary: NUMBER                            -> number
+            | constant                          -> const
+            | _MINUS num_primary                -> neg
+            | _PLUS num_primary                 -> pos
             | function_name "(" number_expr ")" -> func
             | "(" number_expr ")"         
 
 
 
 //───────────────────────────────────────────────────────────────────────────────
-// 2) Mixed “math_expr”: must contain at least one selection_keyword
+// 2) Mixed “math_expr”: must contain at least one selection_keyword (CREATES ARRAYS)
 //───────────────────────────────────────────────────────────────────────────────
 ?math_expr: math_sum
 
 // After the first token, *any* operator can mix with either sel_operand or pure number_expr:
 
-?math_sum: math_sum _PLUS math_term        -> add
-         | math_sum _MINUS math_term       -> sub
-         | math_sum _PLUS num_term        -> add
-         | math_sum _MINUS num_term       -> sub
-         | num_sum _PLUS math_term        -> add
-         | num_sum _MINUS math_term       -> sub
+?math_sum: math_sum _PLUS math_term             -> add
+         | math_sum _MINUS math_term            -> sub
+         | math_sum _PLUS num_term              -> add
+         | math_sum _MINUS num_term             -> sub
+         | num_sum _PLUS math_term              -> add
+         | num_sum _MINUS math_term             -> sub
          | math_term
 
-?math_term: math_term _TIMES math_factor   -> mul
-          | math_term _DIV math_factor     -> truediv
-          | math_term _INTEGER_DIV math_factor -> floordiv
-          | math_term _MOD math_factor     -> mod
-          | math_term _TIMES num_factor   -> mul
-          | math_term _DIV num_factor     -> truediv
-          | math_term _INTEGER_DIV num_factor -> floordiv
-          | math_term _MOD num_factor     -> mod
-          | num_term _TIMES math_factor   -> mul
-          | num_term _DIV math_factor     -> truediv
-          | num_term _INTEGER_DIV math_factor -> floordiv
-          | num_term _MOD math_factor     -> mod
+?math_term: math_term _TIMES math_factor        -> mul
+          | math_term _DIV math_factor          -> truediv
+          | math_term _INTEGER_DIV math_factor  -> floordiv
+          | math_term _MOD math_factor          -> mod
+          | math_term _TIMES num_factor         -> mul
+          | math_term _DIV num_factor           -> truediv
+          | math_term _INTEGER_DIV num_factor   -> floordiv
+          | math_term _MOD num_factor           -> mod
+          | num_term _TIMES math_factor         -> mul
+          | num_term _DIV math_factor           -> truediv
+          | num_term _INTEGER_DIV math_factor   -> floordiv
+          | num_term _MOD math_factor           -> mod
           | math_factor
 
-?math_factor: math_factor _POW math_primary -> pow
-            | math_factor _POW num_primary  -> pow
-            | num_factor _POW math_primary  -> pow
+?math_factor: math_factor _POW math_primary     -> pow
+            | math_factor _POW num_primary      -> pow
+            | num_factor _POW math_primary      -> pow
             | math_primary
 
-?math_primary: selection_keyword                   
-             | "-" math_primary                     -> neg
-             | function_name "(" math_expr ")"     -> func
-             | "(" math_expr ")"                   
+?math_primary: selection_keyword
+             | _MINUS math_primary              -> neg
+             | _PLUS math_primary               -> pos
+             | function_name "(" math_expr ")"  -> func
+             | "(" math_expr ")"
 
 // --------------------------
-// Boolean Keywords
+// Boolean Keywords 
 // --------------------------
 
 // Universal keywords
@@ -224,6 +223,8 @@ BONDED    : "bonded"
 EXBONDED  : "exbonded"
 _TO      : "to"    
 _SEQUENCE  : "sequence"
+_IN : "in"
+
 ?within_op: WITHIN | EXWITHIN
 ?bonded_op : BONDED | EXBONDED
 

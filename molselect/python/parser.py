@@ -10,10 +10,10 @@ class SelectionParser:
     """Parses selection strings to parse trees using Lark."""
     MAX_MACRO_DEPTH = 10
 
-    def __init__(self):
-        self._build_parser_and_macros()
+    def __init__(self, parser_kwargs=None):
+        self._build_parser_and_macros(**parser_kwargs if parser_kwargs else {})
 
-    def _build_parser_and_macros(self, macros_dict=None, keywords_dict=None):
+    def _build_parser_and_macros(self, macros_dict=None, keywords_dict=None, **parser_kwargs):
         """
         Internal method to build the grammar, initialize Lark, and update macro/keyword dicts.
         If macros_dict or keywords_dict is None, reload from config; otherwise, use the provided dicts.
@@ -61,7 +61,7 @@ class SelectionParser:
         # Final injection
         self.grammar = grammar_interim.replace("<<LAST_TOKEN>>", last_token_pattern)
         # Pass grammar text to Lark
-        self.lark = Lark(self.grammar, parser='lalr', propagate_positions=True, start=['start', 'expr'])
+        self.lark = Lark(self.grammar, propagate_positions=True, start=['start', 'expr'], **parser_kwargs)
 
         # Flatten macros for expansion (after grammar construction)
         flat_macros_dict = {}

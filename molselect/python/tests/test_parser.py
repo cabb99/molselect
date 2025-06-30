@@ -146,9 +146,6 @@ def test_macro_circular_reference(parser):
     assert expanded_d == "(((none)) or (none))"
 
     
-    
-
-
 def load_selection_queries():
     import os
     import json
