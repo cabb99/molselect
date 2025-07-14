@@ -7,7 +7,8 @@
         "short": "Atom serial number (file-based).",
         "description": [
           "Atom serial number (file-based). Unique for each atom in the molecule."
-        ]
+        ],
+        "example": "1"
       },
       "residue": {
         "synonyms": [],
@@ -16,6 +17,7 @@
         "description": [
           "Residue index (0-based). Internal index for each residue."
         ],
+        "example": "0",
         "regex_substitution": {
           "residue": "/residue\\b/"
         }
@@ -27,6 +29,7 @@
         "description": [
           "Residue sequence number (file-based). Numeric value assigned to residues, often increasing along the chain."
         ],
+        "example": "1",
         "regex_substitution": {
           "resid": "/resid(?!ue)\\b/"
         }
@@ -37,7 +40,8 @@
         "short": "Chain identifier (file-based).",
         "description": [
           "Chain identifier (file-based). Single-letter code distinguishing subcomponents of a molecule."
-        ]
+        ],
+        "example": "A"
       },
       "model": {
         "synonyms": ["pdbx_PDB_model_num"],
@@ -45,7 +49,8 @@
         "short": "Model number (file-based).",
         "description": [
           "Model number (file-based). Used for multi-model structures (e.g., NMR ensembles)."
-        ]
+        ],
+        "example": "1"
       },
       "index": {
         "synonyms": [],
@@ -53,7 +58,8 @@
         "short": "Atom index (0-based).",
         "description": [
           "Atom index (0-based). Internal index for each atom."
-        ]
+        ],
+        "example": "0"
       },
       "fragment": {
         "synonyms": ["chindex", "chain_index", "frag_index", "fragindex"],
@@ -61,7 +67,8 @@
         "short": "Chain index (0-based).",
         "description": [
           "Chain index (0-based). Usually identifies connected fragments (e.g., protein chains, nucleic acid chains)."
-        ]
+        ],
+        "example": "0"
       },
       "frame": {
         "synonyms": [],
@@ -69,10 +76,10 @@
         "short": "Model number (0-based).",
         "description": [
           "Model number (0-based). Used for animation frames or trajectory steps."
-        ]
+        ],
+        "example": "0"
       }
     },
-
     "Names": {
       "name": {
         "synonyms": ["label_atom_id"],
@@ -80,7 +87,8 @@
         "short": "Atom name.",
         "description": [
           "Atom name. Standard chemical nomenclature (e.g., 'CA' for alpha carbon)."
-        ]
+        ],
+        "example": "CA"
       },
       "resname": {
         "synonyms": ["label_comp_id", "resname"],
@@ -88,7 +96,8 @@
         "short": "Residue name.",
         "description": [
           "Residue name. Three-letter code (e.g., 'GLY' for glycine)."
-        ]
+        ],
+        "example": "GLY"
       }
     },
 
@@ -99,7 +108,8 @@
         "short": "Record name.",
         "description": [
           "Record name. Used to distinguish record types in structure files."
-        ]
+        ],
+        "example": "ATOM"
       },
       "icode": {
         "synonyms": ["pdbx_PDB_ins_code", "icode"],
@@ -107,7 +117,8 @@
         "short": "Code for insertion of residues.",
         "description": [
           "Code for insertion of residues. Used for residue insertion codes in PDB files."
-        ]
+        ],
+        "example": "A"
       },
       "altloc": {
         "synonyms": ["label_alt_id", "altloc"],
@@ -115,18 +126,20 @@
         "short": "Alternate location indicator.",
         "description": [
           "Alternate location indicator. Used for alternate conformations of atoms."
-        ]
+        ],
+        "example": "A"
       }
     },
-
-    "required_data": {
+    "Required Data": {
       "x": {
         "synonyms": ["Cartn_x"],
         "type": "float",
         "short": "Orthogonal coordinates for X in Angstroms.",
         "description": [
           "Orthogonal coordinates for X in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "12.345"
       },
       "y": {
         "synonyms": ["Cartn_y"],
@@ -134,7 +147,9 @@
         "short": "Orthogonal coordinates for Y in Angstroms.",
         "description": [
           "Orthogonal coordinates for Y in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "8.901"
       },
       "z": {
         "synonyms": ["Cartn_z"],
@@ -142,7 +157,9 @@
         "short": "Orthogonal coordinates for Z in Angstroms.",
         "description": [
           "Orthogonal coordinates for Z in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "5.678"
       },
       "occupancy": {
         "synonyms": [],
@@ -150,7 +167,9 @@
         "short": "Occupancy.",
         "description": [
           "Occupancy. Fractional occupancy of the atom position."
-        ]
+        ],
+        "range": [0.0, 1.0],
+        "example": "1.0"
       },
       "beta": {
         "synonyms": ["B_iso_or_equiv", "tempfactor"],
@@ -158,7 +177,9 @@
         "short": "Temperature factor (B-factor).",
         "description": [
           "Temperature factor (B-factor). Atomic displacement parameter."
-        ]
+        ],
+        "units": "Angstrom^2",
+        "example": "23.5"
       },
       "charge": {
         "synonyms": ["pdbx_formal_charge"],
@@ -166,7 +187,9 @@
         "short": "Charge on the atom.",
         "description": [
           "Charge on the atom. Partial or formal charge."
-        ]
+        ],
+        "units": "elementary charge (e)",
+        "example": "1"
       },
       "element": {
         "synonyms": ["type_symbol", "symbol"],
@@ -174,18 +197,19 @@
         "short": "Element symbol.",
         "description": [
           "Element symbol. Chemical element (e.g., 'C', 'O', 'N')."
-        ]
+        ],
+        "example": "C"
       }
     },
-
-    "optional_data": {
+    "Optional Data": {
       "segment": {
         "synonyms": ["segname", "label_entity_id"],
         "type": "str",
         "short": "Segment name.",
         "description": [
           "Segment name. Groups atoms into functional substructures (e.g., protein, water)."
-        ]
+        ],
+        "example": "PROT"
       },
       "type": {
         "synonyms": [],
@@ -193,7 +217,8 @@
         "short": "Atom type.",
         "description": [
           "Atom type. Used for parameterization or classification (e.g., force field types)."
-        ]
+        ],
+        "example": "CT"
       },
       "mass": {
         "synonyms": [],
@@ -201,7 +226,9 @@
         "short": "Mass.",
         "description": [
           "Mass. Atomic mass, used for dynamics and analysis."
-        ]
+        ],
+        "units": "Dalton (Da)",
+        "example": "12.01"
       },
       "atomicnumber": {
         "synonyms": [],
@@ -209,7 +236,8 @@
         "short": "Atomic number (0 if undefined).",
         "description": [
           "Atomic number (0 if undefined)."
-        ]
+        ],
+        "example": "6"
       },
       "bonds": {
         "synonyms": ["numbonds"],
@@ -217,7 +245,8 @@
         "short": "Number of bonds this atom participates in.",
         "description": [
           "Number of bonds this atom participates in."
-        ]
+        ],
+        "example": "4"
       },
       "radius": {
         "synonyms": ["radii"],
@@ -225,7 +254,9 @@
         "short": "Atom radius.",
         "description": [
           "Atom radius. Used for visualization and analysis."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "1.7"
       },
       "anisotropy": {
         "synonyms": ["siguij"],
@@ -233,7 +264,8 @@
         "short": "Standard deviations for anisotropic temperature factor.",
         "description": [
           "Standard deviations for anisotropic temperature factor (e.g., 'type CT1 CT2 CT3')."
-        ]
+        ],
+        "units": "Angstrom^2"
       },
       "vx": {
         "synonyms": [],
@@ -241,7 +273,9 @@
         "short": "Velocity in the x direction.",
         "description": [
           "Velocity in the x direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "0.12"
       },
       "vy": {
         "synonyms": [],
@@ -249,7 +283,9 @@
         "short": "Velocity in the y direction.",
         "description": [
           "Velocity in the y direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "-0.05"
       },
       "vz": {
         "synonyms": [],
@@ -257,7 +293,9 @@
         "short": "Velocity in the z direction.",
         "description": [
           "Velocity in the z direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "0.00"
       },
       "fx": {
         "synonyms": [],
@@ -265,7 +303,9 @@
         "short": "Force in the x direction.",
         "description": [
           "Force in the x direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "1.23"
       },
       "fy": {
         "synonyms": [],
@@ -273,7 +313,9 @@
         "short": "Force in the y direction.",
         "description": [
           "Force in the y direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "-0.45"
       },
       "fz": {
         "synonyms": [],
@@ -281,7 +323,9 @@
         "short": "Force in the z direction.",
         "description": [
           "Force in the z direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufx": {
         "synonyms": [],
@@ -289,7 +333,9 @@
         "short": "Force to apply in the x coordinate.",
         "description": [
           "Force to apply in the x coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufy": {
         "synonyms": [],
@@ -297,7 +343,9 @@
         "short": "Force to apply in the y coordinate.",
         "description": [
           "Force to apply in the y coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufz": {
         "synonyms": [],
@@ -305,7 +353,9 @@
         "short": "Force to apply in the z coordinate.",
         "description": [
           "Force to apply in the z coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "secondary": {
         "synonyms": ["structure"],
@@ -313,7 +363,8 @@
         "short": "Secondary structure assignment.",
         "description": [
           "Secondary structure assignment (e.g., 'H' for helix, 'E' for strand)."
-        ]
+        ],
+        "example": "H"
       },
       "phi": {
         "synonyms": [],
@@ -321,7 +372,9 @@
         "short": "Backbone phi angle.",
         "description": [
           "Backbone phi angle. Main chain dihedral angle in proteins."
-        ]
+        ],
+        "units": "degrees",
+        "example": "-60.0"
       },
       "psi": {
         "synonyms": [],
@@ -329,7 +382,9 @@
         "short": "Backbone psi angle.",
         "description": [
           "Backbone psi angle. Main chain dihedral angle in proteins."
-        ]
+        ],
+        "units": "degrees",
+        "example": "135.0"
       },
       "auth_asym_id": {
         "synonyms": [],
@@ -337,7 +392,8 @@
         "short": "Author-defined chain identifier.",
         "description": [
           "Author-defined chain identifier (as published)."
-        ]
+        ],
+        "example": "A"
       },
       "auth_atom_id": {
         "synonyms": [],
@@ -345,7 +401,8 @@
         "short": "Author-defined atom name.",
         "description": [
           "Author-defined atom name (as published)."
-        ]
+        ],
+        "example": "CA"
       },
       "auth_comp_id": {
         "synonyms": [],
@@ -353,7 +410,8 @@
         "short": "Author-defined residue name.",
         "description": [
           "Author-defined residue name (as published)."
-        ]
+        ],
+        "example": "GLY"
       },
       "auth_seq_id": {
         "synonyms": [],
@@ -361,7 +419,8 @@
         "short": "Author-defined residue sequence number.",
         "description": [
           "Author-defined residue sequence number (as published)."
-        ]
+        ],
+        "example": "1"
       },
       "pfrag": {
         "synonyms": [],
@@ -369,7 +428,8 @@
         "short": "Protein fragment index.",
         "description": [
           "Protein fragment index."
-        ]
+        ],
+        "example": "0"
       },
       "nfrag": {
         "synonyms": [],
@@ -377,7 +437,8 @@
         "short": "Nucleic fragment index.",
         "description": [
           "Nucleic fragment index."
-        ]
+        ],
+        "example": "0"
       }
     }
   }

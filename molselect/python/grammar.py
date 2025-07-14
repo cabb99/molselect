@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/generate_grammar.py
+Dynamically creates the grammar.lark file for molselect using the keywords and macros defined in JSON files.
 
 Reads:
   - molscene/selection/grammar_template.lark
@@ -72,7 +73,7 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
         # Add a category rule if there are tokens
         if cat_tokens:
             # Use category name for rule, e.g. bool_biomolecule
-            rule_name = f"{prefix}_{category.lower()}"
+            rule_name = f"{prefix}_{category.lower().replace(' ', '_')}"
             category_rule = f"?{rule_name}: " + " | ".join(cat_tokens)
             lines.append(category_rule)
             categories.append(rule_name)
