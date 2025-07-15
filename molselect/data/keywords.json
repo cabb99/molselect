@@ -2,7 +2,7 @@
   "keywords": {
     "Indices": {
       "serial": {
-        "synonyms": ["id", "serial"],
+        "synonyms": ["id"],
         "type": "int",
         "short": "Atom serial number (file-based).",
         "description": [
@@ -35,7 +35,7 @@
         }
       },
       "chain": {
-        "synonyms": ["chid", "chainid", "label_asym_id", "chainid"],
+        "synonyms": ["chid", "label_asym_id", "chainid"],
         "type": "str",
         "short": "Chain identifier (file-based).",
         "description": [
@@ -91,7 +91,7 @@
         "example": "CA"
       },
       "resname": {
-        "synonyms": ["label_comp_id", "resname"],
+        "synonyms": ["label_comp_id"],
         "type": "str",
         "short": "Residue name.",
         "description": [
@@ -100,7 +100,6 @@
         "example": "GLY"
       }
     },
-
     "Special Names": {
       "recname": {
         "synonyms": [],
@@ -112,7 +111,7 @@
         "example": "ATOM"
       },
       "icode": {
-        "synonyms": ["pdbx_PDB_ins_code", "icode"],
+        "synonyms": ["pdbx_PDB_ins_code"],
         "type": "str",
         "short": "Code for insertion of residues.",
         "description": [
@@ -121,7 +120,7 @@
         "example": "A"
       },
       "altloc": {
-        "synonyms": ["label_alt_id", "altloc"],
+        "synonyms": ["label_alt_id"],
         "type": "str",
         "short": "Alternate location indicator.",
         "description": [

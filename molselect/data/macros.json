@@ -354,7 +354,7 @@
       },
       "sheet": {
         "name": "sheet",
-        "synonyms": ["beta"],
+        "synonyms": [],
         "short": "all beta sheet types (E, B)",
         "description": [
           "All beta sheet types as defined by DSSP/STRIDE: extended and bridge.",

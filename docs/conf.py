@@ -255,40 +255,27 @@ def generate_keyword_rst(app):
         lines.append('')
 
         for name, meta in kwmap.items():
-            # build "[syn1, syn2]" or empty
-            syns = meta.get("synonyms", [])
-            syns = [f'*{syn}*' for syn in syns]
-            syn_str = f"{', '.join(syns)}" if syns else ''
-
-            # Term line: name + synonyms + (type)
-            if syn_str:
-                lines.append(f"    **{name}**, {syn_str} (``{meta['type']}``)")
-            else:
-                lines.append(f"    **{name}** (``{meta['type']}``)")
-
-            # Description paragraphs
-            for i, paragraph in enumerate(meta.get("description", [])):
-                if i == 0:
-                    lines.append(f"        {paragraph}")
-                else:
-                    lines.append(f"        {paragraph}")
-
-            # Add extra info in a block, only if present
-            if 'units' in meta or 'example' in meta:
-                if 'units' in meta:
-                    lines.append("")
-                    units = meta['units']
-                    if any(x in units for x in ['^', '·', '/', '(', ')', 'Å']):
-                        lines.append(f"        **Units:** :math:`{units}`")
-                    else:
-                        lines.append(f"        **Units:** {units}")
-                if 'example' in meta:
-                    lines.append("")
-                    lines.append(f"        **Example:** ``{name} {meta['example']}``")
+            # List main name and all synonyms, one per line, no markup
+            lines.append(f"    **{name}**")
+            for syn in meta.get("synonyms", []):
+                lines.append(f"    *{syn}*")
+            # Definition block indented under last term
+            # Type in bold, then description, then extra info
+            lines.append(f"        **Type:** ``{meta['type']}``")
+            for paragraph in meta.get("description", []):
+                lines.append(f"        {paragraph}")
+            if 'units' in meta:
                 lines.append("")
-
+                units = meta['units']
+                if any(x in units for x in ['^', '·', '/', '(', ')', 'Å']):
+                    lines.append(f"        **Units:** :math:`{units}`")
+                else:
+                    lines.append(f"        **Units:** {units}")
+            if 'example' in meta:
+                lines.append("")
+                lines.append(f"        **Example:** ``{name} {meta['example']}``")
+            lines.append("")
             lines.append('')  # blank line between entries
-
         lines.append('')  # extra blank after category
 
     with open(dst, 'w', encoding='utf-8') as f:
@@ -320,29 +307,20 @@ def generate_macros_rst(app):
         lines.append('.. glossary::')
         lines.append('')
         for name, meta in macro_map.items():
-            # Macro name and synonyms
-            syns = meta.get("synonyms", [])
-            syn_str = f", {', '.join([f'*{s}*' for s in syns])}" if syns else ''
-            lines.append(f"    **{name}**{syn_str}")
-            # Description (can be str or list)
+            # List main name and all synonyms, one per line, no markup
+            lines.append(f"    {name}")
+            for syn in meta.get("synonyms", []):
+                lines.append(f"    {syn}")
+            # Definition block indented under last term
             desc = meta.get("description", "")
             if isinstance(desc, list):
                 for d in desc:
-                    # Convert markdown-style links to reStructuredText
                     lines.append(f"        {d}")
             elif desc:
-                # Convert markdown-style links to reStructuredText
                 lines.append(f"        {desc}")
-            # Short
-            # if meta.get("short"):
-            #     lines.append(f"        **Short:** {meta['short']}")
-            # Definition
             if meta.get("definition"):
-                lines.append("")
                 lines.append(f"        **Definition:** ``{meta['definition']}``")
-            # Example
             if 'example' in meta:
-                lines.append("")
                 lines.append(f"        **Example:** ``{meta['example']}``")
             lines.append("")
         lines.append("")
