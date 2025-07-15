@@ -101,7 +101,7 @@
       }
     },
 
-    "special_names": {
+    "Special Names": {
       "recname": {
         "synonyms": [],
         "type": "str",

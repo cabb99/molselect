@@ -294,7 +294,64 @@ def generate_keyword_rst(app):
     with open(dst, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
 
+# -- Generate macros reference table --------------------------------------
+def generate_macros_rst(app):
+    import os, json
+    src = os.path.abspath(os.path.join(
+        os.path.dirname(__file__),
+        os.pardir,
+        'molselect', 'data',
+        'macros.json'
+    ))
+    dst = os.path.join(os.path.dirname(__file__), 'macros.rst')
+    data = json.load(open(src, encoding='utf-8'))
+
+    lines = [
+        "Macro Reference",
+        "===============",
+        "",
+    ]
+
+    macros = data.get("macros", {})
+    for category, macro_map in macros.items():
+        lines.append(category)
+        lines.append('-' * len(category))
+        lines.append('')
+        lines.append('.. glossary::')
+        lines.append('')
+        for name, meta in macro_map.items():
+            # Macro name and synonyms
+            syns = meta.get("synonyms", [])
+            syn_str = f", {', '.join([f'*{s}*' for s in syns])}" if syns else ''
+            lines.append(f"    **{name}**{syn_str}")
+            # Description (can be str or list)
+            desc = meta.get("description", "")
+            if isinstance(desc, list):
+                for d in desc:
+                    # Convert markdown-style links to reStructuredText
+                    lines.append(f"        {d}")
+            elif desc:
+                # Convert markdown-style links to reStructuredText
+                lines.append(f"        {desc}")
+            # Short
+            # if meta.get("short"):
+            #     lines.append(f"        **Short:** {meta['short']}")
+            # Definition
+            if meta.get("definition"):
+                lines.append("")
+                lines.append(f"        **Definition:** ``{meta['definition']}``")
+            # Example
+            if 'example' in meta:
+                lines.append("")
+                lines.append(f"        **Example:** ``{meta['example']}``")
+            lines.append("")
+        lines.append("")
+
+    with open(dst, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
 # Connect the function to the Sphinx app       
 def setup(app):
     # run once, before docs build
     app.connect("builder-inited", generate_keyword_rst)
+    app.connect("builder-inited", generate_macros_rst)

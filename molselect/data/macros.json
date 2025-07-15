@@ -52,15 +52,14 @@
             "Crystallographic & MD water molecules",
             "",
             "**PDB‐recognized**:",
-            "- HOH ([PDB link](http://www.pdb.org/pdb/ligand/ligandsummary.do?hetId=HOH))",
-            "- DOD ([PDB link](http://www.pdb.org/pdb/ligand/ligandsummary.do?hetId=DOD))",
+            "- `HOH <https://www.rcsb.org/ligand/HOH>`_ , `DOD <https://www.rcsb.org/ligand/DOD>`_ ",
             "",
             "**MD force-field types**:",
             "- WAT, TIP3, H2O, OH2, TIP, TIP2, TIP4",
             "",
             "_Note_: HH0, OHH, and SOL are omitted due to naming conflicts."
           ],
-          "definition": "resname HOH DOD WAT TIP3 H2O OH2 TIP TIP2 TIP4 HH0 OHH SOL"
+          "definition": "resname HOH DOD WAT TIP3 H2O OH2 TIP TIP2 TIP4"
       },
       "aminoacid": {
         "name": "aminoacid",
