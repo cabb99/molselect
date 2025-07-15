@@ -274,22 +274,17 @@ def generate_keyword_rst(app):
                     lines.append(f"        {paragraph}")
 
             # Add extra info in a block, only if present
-            extra = []
-            if 'units' in meta:
-                # Try to render units as math if possible
-                units = meta['units']
-                # If units look like math, wrap in :math: role
-                if any(x in units for x in ['^', '·', '/', '(', ')', 'Å']):
-                    extra.append(f"**Units:** :math:`{units}`")
-                else:
-                    extra.append(f"**Units:** {units}")
-            if 'example' in meta:
-                # Render example as code
-                extra.append(f"**Example:** ``{name} {meta['example']}``")
-            if extra:
-                lines.append("")
-                for line in extra:
-                    lines.append(f"        {line}")
+            if 'units' in meta or 'example' in meta:
+                if 'units' in meta:
+                    lines.append("")
+                    units = meta['units']
+                    if any(x in units for x in ['^', '·', '/', '(', ')', 'Å']):
+                        lines.append(f"        **Units:** :math:`{units}`")
+                    else:
+                        lines.append(f"        **Units:** {units}")
+                if 'example' in meta:
+                    lines.append("")
+                    lines.append(f"        **Example:** ``{name} {meta['example']}``")
                 lines.append("")
 
             lines.append('')  # blank line between entries
