@@ -200,7 +200,7 @@
         "synonyms": [],
         "short": "cyclic residues",
         "description": "Cyclic amino acids: `HIS <https://www.rcsb.org/ligand/HIS>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_.",
-        "definition": "resname HIS PHE PRO TRW TYR"
+        "definition": "resname HIS PHE PRO TRP TYR"
       }
     },
     "residue_types_nucleotide_size": {
