@@ -5,14 +5,14 @@
         "name": "_pdb_ions",
         "synonyms": [],
         "short": "PDB ions",
-        "description": "Ions recognized by the PDB (e.g. Na⁺, K⁺, Ca²⁺, Zn²⁺, …).",
+        "description": "Ions recognized by the PDB (e.g. aluminum ion (`AL <https://www.rcsb.org/ligand/AL>`_), barium ion (`BA <https://www.rcsb.org/ligand/BA>`_), calcium ion (`CA <https://www.rcsb.org/ligand/CA>`_), cadmium ion (`CD <https://www.rcsb.org/ligand/CD>`_), chloride ion (`CL <https://www.rcsb.org/ligand/CL>`_), cobalt (II) ion (`CO <https://www.rcsb.org/ligand/CO>`_), cesium ion (`CS <https://www.rcsb.org/ligand/CS>`_), copper (II) ion (`CU <https://www.rcsb.org/ligand/CU>`_), copper (I) ion (`CU1 <https://www.rcsb.org/ligand/CU1>`_), dinuclear copper ion (`CUA <https://www.rcsb.org/ligand/CUA>`_), mercury (II) ion (`HG <https://www.rcsb.org/ligand/HG>`_), indium (III) ion (`IN <https://www.rcsb.org/ligand/IN>`_), iodide ion (`IOD <https://www.rcsb.org/ligand/IOD>`_), potassium ion (`K <https://www.rcsb.org/ligand/K>`_), magnesium ion (`MG <https://www.rcsb.org/ligand/MG>`_), manganese (II) ion (`MN <https://www.rcsb.org/ligand/MN>`_), manganese (III) ion (`MN3 <https://www.rcsb.org/ligand/MN3>`_), sodium ion (`NA <https://www.rcsb.org/ligand/NA>`_), lead (II) ion (`PB <https://www.rcsb.org/ligand/PB>`_), platinum (II) ion (`PT <https://www.rcsb.org/ligand/PT>`_), rubidium ion (`RB <https://www.rcsb.org/ligand/RB>`_), terbium (III) ion (`TB <https://www.rcsb.org/ligand/TB>`_), thallium (I) ion (`TL <https://www.rcsb.org/ligand/TL>`_), tungstate(VI) ion (`WO4 <https://www.rcsb.org/ligand/WO4>`_), ytterbium (III) ion (`YB <https://www.rcsb.org/ligand/YB>`_), zinc ion (`ZN <https://www.rcsb.org/ligand/ZN>`_)).",
         "definition": "resname AL BA CA CD CL CO CS CU CU1 CUA HG IN IOD K MG MN MN3 NA PB PT RB TB TL WO4 YB ZN"
       },
       "_charmm_ions": {
         "name": "_charmm_ions",
         "synonyms": ["ion_other"],
         "short": "CHARMM ions",
-        "description": "Additional ion names from CHARMM force fields.",
+        "description": "CHARMM-specific ions: calcium ion (CAL), cesium ion (CES), chloride ion (CLA), potassium ion (POT), sodium ion (SOD), zinc (II) cation (ZN2)",
         "definition": "resname CAL CES CLA POT SOD ZN2"
       }
     },
@@ -21,28 +21,28 @@
         "name": "protein",
         "synonyms": ["is_protein"],
         "short": "all amino acids",
-        "description": "All standard and non-standard amino acids (must have a CA atom).",
+        "description": "All standard and non-standard amino acids (must have a CA atom). See: `ALA <https://www.rcsb.org/ligand/ALA>`_, `ARG <https://www.rcsb.org/ligand/ARG>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, `ASP <https://www.rcsb.org/ligand/ASP>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `SER <https://www.rcsb.org/ligand/SER>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_ and non-standard amino acids.",
         "definition": "stdaa or nonstdaa"
       },
       "nucleic": {
         "name": "nucleic",
         "synonyms": ["is_nucleic"],
         "short": "all nucleic residues",
-        "description": "All nucleobases, nucleotides, and nucleosides.",
+        "description": "All nucleobases, nucleotides, and nucleosides. See: `ADE <https://www.rcsb.org/ligand/ADE>`_, `GUN <https://www.rcsb.org/ligand/GUN>`_, `CYT <https://www.rcsb.org/ligand/CYT>`_, `THY <https://www.rcsb.org/ligand/THY>`_, `URA <https://www.rcsb.org/ligand/URA>`_, `DA <https://www.rcsb.org/ligand/DA>`_, `DC <https://www.rcsb.org/ligand/DC>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `DT <https://www.rcsb.org/ligand/DT>`_, `DU <https://www.rcsb.org/ligand/DU>`_, `A <https://www.rcsb.org/ligand/A>`_, `C <https://www.rcsb.org/ligand/C>`_, `G <https://www.rcsb.org/ligand/G>`_, `T <https://www.rcsb.org/ligand/T>`_, `U <https://www.rcsb.org/ligand/U>`_ and more.",
         "definition": "nucleobase or nucleotide or nucleoside"
       },
       "dna": {
         "name": "dna",
         "synonyms": ["is_dna"],
         "short": "DNA residues",
-        "description": "All DNA nucleotides (deoxy- forms only).",
+        "description": "All DNA nucleotides (deoxy- forms only): `DA <https://www.rcsb.org/ligand/DA>`_, `DC <https://www.rcsb.org/ligand/DC>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `DT <https://www.rcsb.org/ligand/DT>`_, `DU <https://www.rcsb.org/ligand/DU>`_.",
         "definition": "resname DA DC DG DT DU"
       },
       "rna": {
         "name": "rna",
         "synonyms": ["is_rna"],
         "short": "RNA residues",
-        "description": "All RNA nucleotides (ribose forms only).",
+        "description": "All RNA nucleotides (ribose forms only): `A <https://www.rcsb.org/ligand/A>`_, `C <https://www.rcsb.org/ligand/C>`_, `G <https://www.rcsb.org/ligand/G>`_, `U <https://www.rcsb.org/ligand/U>`_, `T <https://www.rcsb.org/ligand/T>`_.",
         "definition": "resname A C G U T"
       },
       "water": {
@@ -65,49 +65,49 @@
         "name": "aminoacid",
         "synonyms": ["vmd_protein", "amino"],
         "short": "aminoacid residues",
-        "description": "A residue with atoms named C, N, CA, and O",
+        "description": "A residue with atoms named C, N, CA, and O (typically: `ALA <https://www.rcsb.org/ligand/ALA>`_, `ARG <https://www.rcsb.org/ligand/ARG>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, ...)",
         "definition": "(same residue as name C) and (same residue as name N) and (same residue as name CA) and (same residue as name O)"
       },
       "vmd_nucleic": {
         "name": "vmd_nucleic",
         "synonyms": [],
         "short": "nucleic residues",
-        "description": "A residue with atoms named C, N, CA, and O",
+        "description": "A residue with atoms named P, O1P, O2P, and sugar atoms (typically: `DA <https://www.rcsb.org/ligand/DA>`_, `DC <https://www.rcsb.org/ligand/DC>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `DT <https://www.rcsb.org/ligand/DT>`_, `A <https://www.rcsb.org/ligand/A>`_, `C <https://www.rcsb.org/ligand/C>`_, `G <https://www.rcsb.org/ligand/G>`_, `U <https://www.rcsb.org/ligand/U>`_)",
         "definition": "(same residue as name P) and (same residue as name O1P) and (same residue as name O2P) and (((same residue as name \"C3'\") and (same residue as name \"C4'\") and (same residue as name \"C5'\") and (same residue as name \"O3'\") and (same residue as name \"O5'\")) or ((same residue as name \"C3*\") and (same residue as name \"C4*\") and (same residue as name \"C5*\") and (same residue as name \"O3*\") and (same residue as name \"O5*\")))"
       },
       "lipid": {
         "name": "lipid",
         "synonyms": ["lipids"],
         "short": "lipid residues",
-        "description": "Common lipid residue names from PDB and CHARMM.",
+        "description": "Common lipid residue names from PDB and CHARMM: `GPE <https://www.rcsb.org/ligand/GPE>`_, `LPP <https://www.rcsb.org/ligand/LPP>`_, `OLA <https://www.rcsb.org/ligand/OLA>`_, `SDS <https://www.rcsb.org/ligand/SDS>`_, `STE <https://www.rcsb.org/ligand/STE>`_, `DLPE <https://www.rcsb.org/ligand/DLPE>`_, `DMPC <https://www.rcsb.org/ligand/DMPC>`_, `LPPC <https://www.rcsb.org/ligand/LPPC>`_, `OLEO <https://www.rcsb.org/ligand/OLEO>`_, `PALM <https://www.rcsb.org/ligand/PALM>`_, `PCGL <https://www.rcsb.org/ligand/PCGL>`_, `POPC <https://www.rcsb.org/ligand/POPC>`_, `POPE <https://www.rcsb.org/ligand/POPE>`_",
         "definition": "resname GPE LPP OLA SDS STE DLPE DMPC LPPC OLEO PALM PCGL POPC POPE"
       },
       "ion": {
         "name": "ion",
         "synonyms": ["ions"],
         "short": "all ions",
-        "description": "All PDB and CHARMM ions.",
+        "description": "All PDB and CHARMM ions. See: `_pdb_ions` and `_charmm_ions` above.",
         "definition": "_pdb_ions or _charmm_ions"
       },
       "sugar": {
         "name": "sugar",
         "synonyms": [],
         "short": "sugar residues",
-        "description": "Common sugar names (glucose, galactose, …).",
+        "description": "Common sugar names (glucose, galactose, …): `GLC <https://www.rcsb.org/ligand/GLC>`_, `GLO <https://www.rcsb.org/ligand/GLO>`_, `BGC <https://www.rcsb.org/ligand/BGC>`_, `AGLC <https://www.rcsb.org/ligand/AGLC>`_",
         "definition": "resname GLC GLO BGC AGLC"
       },
       "glycan": {
         "name": "glycan",
         "synonyms": [],
         "short": "glycan residues",
-        "description": "Common glycan and oligosaccharide names.",
+        "description": "Common glycan and oligosaccharide names: `NAG <https://www.rcsb.org/ligand/NAG>`_, `BGLN <https://www.rcsb.org/ligand/BGLN>`_, `FUC <https://www.rcsb.org/ligand/FUC>`_, `AFUC <https://www.rcsb.org/ligand/AFUC>`_, `MAN <https://www.rcsb.org/ligand/MAN>`_, `AMAN <https://www.rcsb.org/ligand/AMAN>`_, `BMA <https://www.rcsb.org/ligand/BMA>`_, `BMAN <https://www.rcsb.org/ligand/BMAN>`_",
         "definition": "resname NAG BGLN FUC AFUC MAN AMAN BMA BMAN"
       },
       "heme": {
         "name": "heme",
         "synonyms": [],
         "short": "heme groups",
-        "description": "Common heme and porphyrin variants.",
+        "description": "Common heme and porphyrin variants: `HEM <https://www.rcsb.org/ligand/HEM>`_, `HEME <https://www.rcsb.org/ligand/HEME>`_",
         "definition": "resname HEM HEME"
       },
       "drude": {
@@ -130,14 +130,14 @@
         "name": "aromatic",
         "synonyms": [],
         "short": "aromatic residues",
-        "description": "Aromatic amino acids: HIS, PHE, TRP, TYR.",
+        "description": "Aromatic amino acids: `HIS <https://www.rcsb.org/ligand/HIS>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_.",
         "definition": "resname HIS PHE TRP TYR"
       },
       "aliphatic": {
         "name": "aliphatic",
         "synonyms": [],
         "short": "aliphatic residues",
-        "description": "Aliphatic amino acids: ALA, GLY, ILE, LEU, VAL.",
+        "description": "Aliphatic amino acids: `ALA <https://www.rcsb.org/ligand/ALA>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_.",
         "definition": "resname ALA GLY ILE LEU VAL"
       }
     },
@@ -153,7 +153,7 @@
         "name": "hydrophobic",
         "synonyms": [],
         "short": "hydrophobic residues",
-        "description": "Hydrophobic amino acids: ALA, LEU, VAL, ILE, PRO, PHE, MET, TRP.",
+        "description": "Hydrophobic amino acids: `ALA <https://www.rcsb.org/ligand/ALA>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_.",
         "definition": "resname ALA LEU VAL ILE PRO PHE MET TRP"
       }
     },
@@ -169,21 +169,21 @@
         "name": "acidic",
         "synonyms": [],
         "short": "acidic residues",
-        "description": "Acidic amino acids: ASP, GLU.",
+        "description": "Acidic amino acids: `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_.",
         "definition": "resname ASP GLU"
       },
       "basic": {
         "name": "basic",
         "synonyms": [],
         "short": "basic residues",
-        "description": "Basic amino acids: ARG, HIS, LYS, HSP.",
+        "description": "Basic amino acids: `ARG <https://www.rcsb.org/ligand/ARG>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_.",
         "definition": "resname ARG HIS LYS HSP"
       },
       "neutral": {
         "name": "neutral",
         "synonyms": [],
         "short": "neutral residues",
-        "description": "Neutral residues: VAL, PHE, GLN, TYR, HIS, CYS, MET, TRP, ASX, GLX, PCA, HYP.",
+        "description": "Neutral residues: `VAL <https://www.rcsb.org/ligand/VAL>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `ASX <https://www.rcsb.org/ligand/ASX>`_, `GLX <https://www.rcsb.org/ligand/GLX>`_, `PCA <https://www.rcsb.org/ligand/PCA>`_, `HYP <https://www.rcsb.org/ligand/HYP>`_.",
         "definition": "resname VAL PHE GLN TYR HIS CYS MET TRP ASX GLX PCA HYP"
       }
     },
@@ -199,8 +199,8 @@
         "name": "cyclic",
         "synonyms": [],
         "short": "cyclic residues",
-        "description": "Cyclic amino acids: HIS, PHE, PRO, TRP, TYR.",
-        "definition": "resname HIS PHE PRO TRP TYR"
+        "description": "Cyclic amino acids: `HIS <https://www.rcsb.org/ligand/HIS>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_.",
+        "definition": "resname HIS PHE PRO TRW TYR"
       }
     },
     "residue_types_nucleotide_size": {
@@ -208,14 +208,14 @@
         "name": "purine",
         "synonyms": [],
         "short": "purine bases",
-        "description": "Purine nucleobases: DA, A, DG, G, ADE, GUA.",
+        "description": "Purine nucleobases: `DA <https://www.rcsb.org/ligand/DA>`_, `A <https://www.rcsb.org/ligand/A>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `G <https://www.rcsb.org/ligand/G>`_, `ADE <https://www.rcsb.org/ligand/ADE>`_, `GUA <https://www.rcsb.org/ligand/GUA>`_.",
         "definition": "resname DA A DG G ADE GUA"
       },
       "pyrimidine": {
         "name": "pyrimidine",
         "synonyms": [],
         "short": "pyrimidine bases",
-        "description": "Pyrimidine nucleobases: DC, C, DT, T, DU, U, CYT, THY, URI.",
+        "description": "Pyrimidine nucleobases: `DC <https://www.rcsb.org/ligand/DC>`_, `C <https://www.rcsb.org/ligand/C>`_, `DT <https://www.rcsb.org/ligand/DT>`_, `T <https://www.rcsb.org/ligand/T>`_, `DU <https://www.rcsb.org/ligand/DU>`_, `U <https://www.rcsb.org/ligand/U>`_, `CYT <https://www.rcsb.org/ligand/CYT>`_, `THY <https://www.rcsb.org/ligand/THY>`_, `URI <https://www.rcsb.org/ligand/URI>`_.",
         "definition": "resname DC C DT T DU U CYT THY URI"
       }
     },
@@ -224,7 +224,7 @@
         "name": "cg",
         "synonyms": ["gc"],
         "short": "C/G bases",
-        "description": "Cytosine and guanine bases: DC, C, DG, G.",
+        "description": "Cytosine and guanine bases: `DC <https://www.rcsb.org/ligand/DC>`_, `C <https://www.rcsb.org/ligand/C>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `G <https://www.rcsb.org/ligand/G>`_.",
         "definition": "resname DC C DG G"
       },
       "ta": {
@@ -234,7 +234,7 @@
         "regex_substitution": {
           "ta": "/ta(?!n)\\b/"
         },
-        "description": "Thymine/adenine bases: DT, T, DU, U, DA, A.",
+        "description": "Thymine/adenine bases: `DT <https://www.rcsb.org/ligand/DT>`_, `T <https://www.rcsb.org/ligand/T>`_, `DU <https://www.rcsb.org/ligand/DU>`_, `U <https://www.rcsb.org/ligand/U>`_, `DA <https://www.rcsb.org/ligand/DA>`_, `A <https://www.rcsb.org/ligand/A>`_.",
         "definition": "resname DT T DU U DA A"
       }
     },
@@ -253,7 +253,7 @@
         "synonyms": [],
         "description": [
           "Residues that are tipically buried in the protein core",
-          "Includes: ALA, CYS, ILE, LEU, MET, PHE, TRP, VAL"
+          "Includes: `ALA <https://www.rcsb.org/ligand/ALA>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_"
         ],
         "definition": "resname ALA CYS ILE LEU MET PHE TRP VAL"
       },
@@ -262,7 +262,7 @@
         "synonyms": [],
         "description": [
           "Residues that are tipically exposed on the protein surface",
-          "Includes: ARG, ASN, ASP, GLN, GLU, GLY, HIS, LYS, PRO, SER, THR, TYR"
+          "Includes: `ARG <https://www.rcsb.org/ligand/ARG>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `SER <https://www.rcsb.org/ligand/SER>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_"
         ],
         "definition": "resname ARG ASN ASP GLN GLU GLY HIS LYS PRO SER THR TYR"
       }
@@ -273,8 +273,7 @@
         "synonyms": [],
         "description": [
           "Residues defined for the 'small' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['small']`.",
-          "Residues: ALA, GLY, SER"
+          "Residues: `ALA <https://www.rcsb.org/ligand/ALA>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `SER <https://www.rcsb.org/ligand/SER>`_"
         ],
         "definition": "resname ALA GLY SER"
       },
@@ -283,8 +282,7 @@
         "synonyms": [],
         "description": [
           "Residues defined for the 'medium' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['medium']`.",
-          "Residues: ASN, ASP, CYS, PRO, THR, VAL, ASX, PCA, HYP"
+          "Residues: `ASN <https://www.rcsb.org/ligand/ASN>`_, `ASP <https://www.rcsb.org/ligand/ASP>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_, `ASX <https://www.rcsb.org/ligand/ASX>`_, `PCA <https://www.rcsb.org/ligand/PCA>`_, `HYP <https://www.rcsb.org/ligand/HYP>`_"
         ],
         "definition": "resname ASN ASP CYS PRO THR VAL ASX PCA HYP"
       },
@@ -293,8 +291,7 @@
         "synonyms": [],
         "description": [
           "Residues defined for the 'large' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['large']`.",
-          "Residues: ARG, GLN, GLU, HIS, ILE, LEU, LYS, MET, PHE, TRP, TYR"
+          "Residues: `ARG <https://www.rcsb.org/ligand/ARG>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_"
         ],
         "definition": "resname ARG GLN GLU HIS ILE LEU LYS MET PHE TRP TYR"
       }
@@ -305,7 +302,6 @@
         "synonyms": ["bb"],
         "description": [
           "Residues defined for the 'backbone' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['backbone']`.",
           "Residues: C, CA, N, O"
         ],
         "definition": "(protein and name C CA N O) or (nucleic and name P O1P O2P \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" \"C3*\" \"C4*\" \"C5*\" \"O3*\" \"O5*\")"
@@ -315,7 +311,6 @@
         "synonyms": ["bbfull"],
         "description": [
           "Residues defined for the 'backbonefull' flag in ProDy",
-          "Automatically extracted from `prody.flags.DEFAULTS['backbonefull']`.",
           "Atoms: C, CA, H, H1, H2, H3, N, O, OXT"
         ],
         "definition": "(protein and name C CA H H1 H2 H3 N O OXT)"
@@ -453,35 +448,35 @@
         "name": "stdaa",
         "synonyms": [],
         "short": "standard amino acids",
-        "description": "The twenty standard amino acid residue names.",
+        "description": "The twenty standard amino acid residue names: alanine (`ALA <https://www.rcsb.org/ligand/ALA>`_), arginine (`ARG <https://www.rcsb.org/ligand/ARG>`_), asparagine (`ASN <https://www.rcsb.org/ligand/ASN>`_), aspartic acid (`ASP <https://www.rcsb.org/ligand/ASP>`_), cysteine (`CYS <https://www.rcsb.org/ligand/CYS>`_), glutamine (`GLN <https://www.rcsb.org/ligand/GLN>`_), glutamic acid (`GLU <https://www.rcsb.org/ligand/GLU>`_), glycine (`GLY <https://www.rcsb.org/ligand/GLY>`_), histidine (`HIS <https://www.rcsb.org/ligand/HIS>`_), isoleucine (`ILE <https://www.rcsb.org/ligand/ILE>`_), leucine (`LEU <https://www.rcsb.org/ligand/LEU>`_), lysine (`LYS <https://www.rcsb.org/ligand/LYS>`_), methionine (`MET <https://www.rcsb.org/ligand/MET>`_), phenylalanine (`PHE <https://www.rcsb.org/ligand/PHE>`_), proline (`PRO <https://www.rcsb.org/ligand/PRO>`_), serine (`SER <https://www.rcsb.org/ligand/SER>`_), threonine (`THR <https://www.rcsb.org/ligand/THR>`_), tryptophan (`TRP <https://www.rcsb.org/ligand/TRP>`_), tyrosine (`TYR <https://www.rcsb.org/ligand/TYR>`_), valine (`VAL <https://www.rcsb.org/ligand/VAL>`_).",
         "definition": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL"
       },
       "nonstdaa": {
         "name": "nonstdaa",
         "synonyms": [],
         "short": "non-standard amino acids",
-        "description": "Common non-standard amino acid residue names.",
-        "definition": "resname ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB"
+        "description": "Common non-standard amino acid residue names: ASP/ASN ambiguous (asparagine or aspartate) (`ASX <https://www.rcsb.org/ligand/ASX>`_), GLU/GLN ambiguous (glutamine or glutamate) (`GLX <https://www.rcsb.org/ligand/GLX>`_), S-hydroxycysteine (`CSO <https://www.rcsb.org/ligand/CSO>`_), cystine (disulfide-linked cysteine) (`CYX <https://www.rcsb.org/ligand/CYX>`_), ND1-phosphonohistidine (`HIP <https://www.rcsb.org/ligand/HIP>`_), (5-hydroxy-1H-indol-3-yl)acetic acid (`HID <https://www.rcsb.org/ligand/HID>`_), 4-[6,6-dimethyl-4-oxo-3-(trifluoromethyl)-4,5,6,7-tetrahydro-1H-indazol-1-yl]-2-[(cis-4-hydroxycyclohexyl)amino]benzamide (`HIE <https://www.rcsb.org/ligand/HIE>`_), (1S,2S,3R,6R)-6-amino-4-(hydroxymethyl)cyclohex-4-ene-1,2,3-triol (`HSD <https://www.rcsb.org/ligand/HSD>`_), L-homoserine (`HSE <https://www.rcsb.org/ligand/HSE>`_), 4-(2-hydroxyphenylsulfinyl)-butylphosphonic acid (`HSP <https://www.rcsb.org/ligand/HSP>`_), selenomethionine (`MSE <https://www.rcsb.org/ligand/MSE>`_), S,S-(2-hydroxyethyl)thiocysteine (`CME <https://www.rcsb.org/ligand/CME>`_), selenocysteine (`SEC <https://www.rcsb.org/ligand/SEC>`_), phosphoserine (`SEP <https://www.rcsb.org/ligand/SEP>`_), phosphothreonine (`TPO <https://www.rcsb.org/ligand/TPO>`_), O-phosphotyrosine (`PTR <https://www.rcsb.org/ligand/PTR>`_), para-hydroxyphenylglycine (`PHD <https://www.rcsb.org/ligand/PHD>`_), ambiguous Leu/Ile (`XLE`), (1S,2S)-1-amino-1-(1,3-thiazol-2-yl)propan-2-ol (`XAA <https://www.rcsb.org/ligand/XAA>`_), N-methyl asparagine (`MEN <https://www.rcsb.org/ligand/MEN>`_), S-(2-carboxyethyl)cysteine (`CSB <https://www.rcsb.org/ligand/CSB>`_) , unknown aminoacid (`UNK <https://www.rcsb.org/ligand/UNK>`_).",
+        "definition": "resname ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK"
       },
       "nucleobase": {
         "name": "nucleobase",
         "synonyms": [],
         "short": "A, G, C, T, U bases",
-        "description": "Purine and pyrimidine nucleobases (adenine, guanine, cytosine, thymine, uracil).",
+        "description": "Purine and pyrimidine nucleobases (adenine, guanine, cytosine, thymine, uracil): `ADE <https://www.rcsb.org/ligand/ADE>`_, `GUN <https://www.rcsb.org/ligand/GUN>`_, `CYT <https://www.rcsb.org/ligand/CYT>`_, `THY <https://www.rcsb.org/ligand/THY>`_, `URA <https://www.rcsb.org/ligand/URA>`_.",
         "definition": "resname ADE GUN CYT THY URA"
       },
       "nucleotide": {
         "name": "nucleotide",
         "synonyms": [],
         "short": "nucleotides",
-        "description": "Mono- and deoxy-nucleotides (A, C, G, T, U variants).",
+        "description": "Mono- and deoxy-nucleotides (A, C, G, T, U variants): `DA <https://www.rcsb.org/ligand/DA>`_, `DC <https://www.rcsb.org/ligand/DC>`_, `DG <https://www.rcsb.org/ligand/DG>`_, `DT <https://www.rcsb.org/ligand/DT>`_, `DU <https://www.rcsb.org/ligand/DU>`_, `A <https://www.rcsb.org/ligand/A>`_, `C <https://www.rcsb.org/ligand/C>`_, `G <https://www.rcsb.org/ligand/G>`_, `T <https://www.rcsb.org/ligand/T>`_, `U <https://www.rcsb.org/ligand/U>`_.",
         "definition": "resname DA DC DG DT DU A C G T U"
       },
       "nucleoside": {
         "name": "nucleoside",
         "synonyms": [],
         "short": "nucleosides",
-        "description": "All recognized nucleosides and their phosphate derivatives.",
+        "description": "All recognized nucleosides and their phosphate derivatives: `ADN <https://www.rcsb.org/ligand/ADN>`_, `AMP <https://www.rcsb.org/ligand/AMP>`_, `ADP <https://www.rcsb.org/ligand/ADP>`_, `ATP <https://www.rcsb.org/ligand/ATP>`_, `AGS <https://www.rcsb.org/ligand/AGS>`_, `CMP <https://www.rcsb.org/ligand/CMP>`_, `A2P <https://www.rcsb.org/ligand/A2P>`_, `A3P <https://www.rcsb.org/ligand/A3P>`_, `CTN <https://www.rcsb.org/ligand/CTN>`_, `C2P <https://www.rcsb.org/ligand/C2P>`_, `C3P <https://www.rcsb.org/ligand/C3P>`_, `C5P <https://www.rcsb.org/ligand/C5P>`_, `CDP <https://www.rcsb.org/ligand/CDP>`_, `CTP <https://www.rcsb.org/ligand/CTP>`_, `GMP <https://www.rcsb.org/ligand/GMP>`_, `5GP <https://www.rcsb.org/ligand/5GP>`_, `GDP <https://www.rcsb.org/ligand/GDP>`_, `GTP <https://www.rcsb.org/ligand/GTP>`_, `THM <https://www.rcsb.org/ligand/THM>`_, `TMP <https://www.rcsb.org/ligand/TMP>`_, `TPP <https://www.rcsb.org/ligand/TPP>`_, `TTP <https://www.rcsb.org/ligand/TTP>`_, `URI <https://www.rcsb.org/ligand/URI>`_, `UMP <https://www.rcsb.org/ligand/UMP>`_, `UDP <https://www.rcsb.org/ligand/UDP>`_, `UTP <https://www.rcsb.org/ligand/UTP>`_.",
         "definition": "resname ADN AMP ADP ATP AGS CMP A2P A3P CTN C2P C3P C5P CDP CTP GMP 5GP GDP GTP THM TMP TPP TTP URI UMP UDP UTP"
       },
       "prody_protein": {
