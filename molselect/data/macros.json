@@ -21,7 +21,7 @@
         "name": "protein",
         "synonyms": ["is_protein"],
         "short": "all amino acids",
-        "description": "All standard and non-standard amino acids (must have a CA atom). See: `ALA <https://www.rcsb.org/ligand/ALA>`_, `ARG <https://www.rcsb.org/ligand/ARG>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, `ASP <https://www.rcsb.org/ligand/ASP>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `SER <https://www.rcsb.org/ligand/SER>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_ and non-standard amino acids.",
+        "description": "All standard and non-standard amino acids (must have a CA atom). See: :term:`stdaa`, :term:`nonstdaa`.",
         "definition": "stdaa or nonstdaa"
       },
       "nucleic": {
@@ -86,7 +86,7 @@
         "name": "ion",
         "synonyms": ["ions"],
         "short": "all ions",
-        "description": "All PDB and CHARMM ions. See: `_pdb_ions` and `_charmm_ions` above.",
+        "description": "All PDB and CHARMM ions. See: :term:`_pdb_ions`, :term:`_charmm_ions` above.",
         "definition": "_pdb_ions or _charmm_ions"
       },
       "sugar": {
@@ -121,7 +121,7 @@
         "name": "solvent",
         "synonyms": [],
         "short": "non-biomolecule",
-        "description": "Anything other than protein, sugar, nucleic or lipid.",
+        "description": "Anything other than protein, sugar, nucleic or lipid. See: :term:`protein`, :term:`sugar`, :term:`nucleic`, :term:`lipid`.",
         "definition": "not (protein or sugar or nucleic or lipid)"
       }
     },
@@ -483,14 +483,14 @@
         "name": "prody_protein",
         "synonyms": [],
         "short": "all amino acids",
-        "description": "All standard and non-standard amino acids (must have a CA atom).",
+        "description": "All standard and non-standard amino acids (must have a CA atom). See: :term:`stdaa`, :term:`nonstdaa`.",
         "definition": "_stdaa or _nonstdaa"
       },
       "prody_nucleic": {
-        "name": "prody_protein",
+        "name": "prody_nucleic",
         "synonyms": [],
         "short": "all nucleic residues",
-        "description": "All nucleobases, nucleotides, and nucleosides.",
+        "description": "All nucleobases, nucleotides, and nucleosides. See: :term:`nucleobase`, :term:`nucleotide`, :term:`nucleoside`.",
         "definition": "nucleobase or nucleotide or nucleoside"
       }
     },
