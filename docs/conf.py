@@ -319,8 +319,10 @@ def generate_macros_rst(app):
             elif desc:
                 lines.append(f"        {desc}")
             if meta.get("definition"):
+                lines.append("")
                 lines.append(f"        **Definition:** ``{meta['definition']}``")
             if 'example' in meta:
+                lines.append("")
                 lines.append(f"        **Example:** ``{meta['example']}``")
             lines.append("")
         lines.append("")

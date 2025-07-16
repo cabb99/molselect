@@ -1,57 +1,89 @@
+.. _user-guide:
+
 User Guide
 ===========
-
-.. _user-guide:
 
 Quick Reference
 -------------------
 
-.. list-table:: Common Selection Keywords
-   :widths: 20 40
+.. list-table:: Syntax Quick Reference
+   :widths: 25 35
    :header-rows: 1
 
-   * - **Category**
+.. list-table:: Common Selection Keywords
+   :widths: 20 60
+   :header-rows: 1
+
+   * - **Form**
      - **Examples**
-   * - Universals
-     - ``all``, ``none``, ``everything``, ``nothing``
-   * - Biomolecules
-     - ``protein``, ``water``, ``dna``, ``rna``, ``lipid``, ``ion``, ``solvent``
-   * - Residues
-     - ``charged``, ``acidic``, ``basic``, ``polar``, ``hydrophobic``, ``aromatic``
-   * - Elements
-     - ``carbon``, ``nitrogen``, ``oxygen``, ``hydrogen``, ``sulfur``, ``phosphorus``
-   * - Structures
-     - ``helix``, ``sheet``, ``coil``, ``turn``, ``bridge_beta``
-   * - Field Filters
-     - ``name CA``, ``resname ALA``, ``index 0``, ``chain A``, ``resid 1:10``
-   * - Numeric/Math
-     - ``mass > 12``, ``x -10 to 10``, ``sqrt(x**2+y**2+z**2) < 10``
-   * - Proximity
-     - ``within 5 of water``, ``bonded 1 to protein``
-   * - Boolean Logic
-     - ``and``, ``or``, ``not``, ``xor``
-   * - Quoting
-     - ``name 'A 1'``, ``resid `-3:5``, ``name =~ "^C.*"``
+   * - Flag
+     - ``all``; ``protein``; ``water``; ``ion``
+   * - Field filter
+     - ``name CA CB``; ``resname ALA GLY``; ``index 0:10``; ``resid 1:4:2``
+   * - Numeric & math
+     - ``mass > 12``; ``-10 <= x < 0``; ``sqrt(x**2 + y**2 + z**2) < 10``; ``index % 2 == 1``
+   * - Regex & quoting
+     - ``name "C.*"``; ``resname "S.."``; ``name 'A 1'``; ``resnum `-3:16:1````
+   * - Spatial & bonded
+     - ``within 5 of water``; ``exwithin 3 of water``; ``bonded 1 to calpha``; ``exbonded 1 to calpha``
+   * - Advanced selection
+     - ``sequence MIEIK``; ``sequence "S[A-Z]{2}G"``; ``same residue as index 0``; ``same chain as index 0``
+   * - Logical combination
+     - ``resid 10 to 20 and backbone``; ``protein and same residue as within 5 of water``
+
+
 
 .. tip::
-   See :ref:`selection-grammar` for a full reference and more advanced examples.
+    For details of available selection keywords and macros, refer to the following resources:
+    
+    - :doc:`keywords` — Comprehensive glossary of selection keywords and their usage.
+    - :doc:`macros` — List of available macros with examples.
 
-:ref:`macros` | :ref:`variables`
+.. _selection-grammar:
 
-Welcome to the MolSelect User Guide! This page will help you master the selection language for molecular queries, from basic flags to advanced pattern matching.
+Introduction
+-----------------
 
-Terminology & Glossary Links
-----------------------------
+The MolSelect grammar evaluates a query in four distinct layers. Each layer transforms data step by step:
 
-A **mask** is the set of atoms you’ll get back from a selection query (i.e., a Boolean array or list indicating which atoms are selected).
+1. **Arithmetic Expressions**
+   
+   Computes purely numeric values. These can be scalars or arrays, but they never reference atom properties.
+   
+   **Example:**
+   ::
+      sqrt(2 + 3*4)
+      10 / 3
 
-.. seealso::
+2. **Property (Attribute) Expressions**
+   
+   Extracts per-atom properties—coordinates, mass, dihedral angles, etc.—and combine them with arithmetic operators or functions.
+   
+   **Example:**
+   ::
+      x + y + z - 10
+      log(occupancy)
+      phi - psi
 
-   For definitions of key terms and selection syntax, see the following glossary pages:
+3. **Filter (Predicate) Expressions**
+   
+   Compares numeric or string expressions against literals, ranges, or regex patterns. Each yields a boolean mask (one `True`/`False` per atom).
+   
+   **Examples:**
+   ::
+      mass > 12
+      resname 'ALA'
+      name =~ "^C.*"
 
-   - :doc:`keywords` — Main glossary of selection keywords and their descriptions.
-   - :doc:`macros` — List of available macros and their usage.
-   - :doc:`keywords` — Full list of fields, including advanced/optional fields (see also ``phi``, ``psi``, ``segment``, ``pfrag``, ``nfrag``, ``vx``, ``fy``, ``uz``).
+4. **Logical Combination**
+   
+   Combines boolean masks (list indicating which atoms are selected) into a final selection mask. Parentheses may be used to control precedence.
+   
+   **Example:**
+   ::
+      (resname ALA and mass > 12) or within 5 of water
+
+
 
 Selection Language Overview
 -------------------------------
@@ -67,7 +99,7 @@ Every query in MolSelect builds a Boolean mask (i.e., the set of atoms you’ll 
 
 Combine everything with ``and``, ``or``, ``xor``, ``not`` (see next section), and nest with parentheses.
 
-.. _selection-grammar:
+
 
 Selection Grammar Reference
 -------------------------------
@@ -103,7 +135,8 @@ Boolean Logic & Combining Filters
 .. tip::
    Writing two filters side-by-side implies AND:
    ::
-      resname ALA CB   # same as "resname ALA and resname CB"
+
+     resname ALA CB   # same as "resname ALA and resname CB"
 
 .. note::
    Writing ``resname ALA VAL LEU`` is equivalent to
@@ -185,6 +218,7 @@ Field-Based Filters
 .. warning::
    To select residues –3 to 5 you **must** write:
    ::
+      
       resid `-3:5`
 
 .. _macros:
