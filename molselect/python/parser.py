@@ -10,10 +10,10 @@ class SelectionParser:
     """Parses selection strings to parse trees using Lark."""
     MAX_MACRO_DEPTH = 10
 
-    def __init__(self, parser_kwargs=None):
-        self._build_parser_and_macros(**parser_kwargs if parser_kwargs else {})
+    def __init__(self, remove_hidden_tokens=False, parser_kwargs=None):
+        self._build_parser_and_macros(remove_hidden_tokens=remove_hidden_tokens, **parser_kwargs if parser_kwargs else {})
 
-    def _build_parser_and_macros(self, macros_dict=None, keywords_dict=None, **parser_kwargs):
+    def _build_parser_and_macros(self, macros_dict=None, keywords_dict=None, remove_hidden_tokens=False, **parser_kwargs):
         """
         Internal method to build the grammar, initialize Lark, and update macro/keyword dicts.
         If macros_dict or keywords_dict is None, reload from config; otherwise, use the provided dicts.
@@ -58,8 +58,16 @@ class SelectionParser:
         )
         # Compute last‐token pattern
         last_token_pattern = compute_last_token_pattern(grammar_interim)
+            
         # Final injection
         self.grammar = grammar_interim.replace("<<LAST_TOKEN>>", last_token_pattern)
+
+        # Remobve hidden tokens if specified
+        if remove_hidden_tokens:
+            import re
+            # Remove hidden tokens (those starting with a question mark)
+            self.grammar  = re.sub(r'(?m)^(\s*)\?([A-Za-z_]\w*)(\s*:)', r'\1\2\3', self.grammar)
+
         # Pass grammar text to Lark
         self.lark = Lark(self.grammar, propagate_positions=True, start=['start', 'expr'], **parser_kwargs)
 

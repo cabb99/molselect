@@ -182,6 +182,9 @@
       },
       "charge": {
         "synonyms": ["pdbx_formal_charge"],
+        "regex_substitution": {
+          "charge": "/charge\\b/"
+        },
         "type": "float",
         "short": "Charge on the atom.",
         "description": [

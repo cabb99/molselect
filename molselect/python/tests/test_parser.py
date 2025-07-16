@@ -4,10 +4,10 @@ from molselect.python.errors import *
 
 @pytest.fixture(scope="module")
 def module_parser():
-    return SelectionParser()
+    return SelectionParser(parser_kwargs={'parser': 'earley', 'ambiguity': 'explicit','keep_all_tokens': True}, remove_hidden_tokens=True)
 
 @pytest.fixture(scope="function")
-def parser(module_parser):
+def parser():
     return SelectionParser()
 
 def test_parse_valid_expression(parser):
@@ -160,7 +160,8 @@ def load_selection_queries():
 @pytest.mark.parametrize("selection", load_selection_queries())
 def test_parse_single_selection(module_parser, selection):
     """Test parsing a single selection query."""
-    module_parser.parse(selection)
+    forest = module_parser.parse(selection)
+    assert "ambig" not in forest.pretty()
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s", "--tb=short"])

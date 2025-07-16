@@ -51,7 +51,6 @@ start: expr
           | bonded_selection
           | sequence_selection
           | same_selection
-          | "(" selection ")"
 
 //Range selection
 comparison_selection: math_or_number_expr (comparison_op math_or_number_expr)+
@@ -288,7 +287,7 @@ TANH    : "tanh"
 // --------------------------
 
 PI      : "pi"
-E       : "e"
+E       : /\be\b/
 
 ?constant: PI | E
 

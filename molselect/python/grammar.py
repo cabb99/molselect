@@ -91,19 +91,37 @@ def compute_last_token_pattern(grammar_text: str) -> str:
     """
     # Remove comments
     no_comments = re.sub(r'//.*', '', grammar_text)
-    reserved = []
+    reserved_literals = []
+    reserved_regex = []
     for line in no_comments.splitlines():
         m = re.match(r'^\s*([A-Z_][A-Z0-9_]*)\s*:\s*(.+)$', line)
         if not m:
             continue
-        for lit in re.findall(r'"([^"]+)"', m.group(2)):
-            reserved.append(lit)
+        token_name, rhs = m.group(1), m.group(2)
+
+        # 1) Skip any regex that isn’t a selection token:
+        if token_name in (
+            "COMMENT",
+            "SINGLE_QUOTED_STRING",
+            "TRIPLE_SINGLE_QUOTED_STRING",
+            "TRIPLE_DOUBLE_QUOTED_STRING",
+        ):
+            continue
+        if not m:
+            continue
+        for lit in re.findall(r'"([^"]+)"', rhs):
+            reserved_literals.append(lit)
+        # Collect all slash‑delimited regex patterns
+        for regex_pat in re.findall(r'(?<!")/((?:\\.|[^/])*)/(?!")', rhs):
+            reserved_regex.append(regex_pat)  # Escape slashes for regex
     # Build alternation pattern for reserved words
-    kw_pat = "|".join(map(re.escape, reserved))
+    keyword_patterns = "|".join(map(re.escape, reserved_literals))
+    regex_patterns = "|".join(reserved_regex)
+    patterns = f"{keyword_patterns}|{regex_patterns}"
     # Compose the last-token regex pattern (no ^/$ anchors, use \b after reserved alternation)
     last_token_pattern = (
         r"""(?![-'"()])"""  # not starting with these punctuations
-        rf"""(?!(?:{kw_pat})\b)"""  # not a reserved word
+        rf"""(?!(?:{patterns})\b)"""  # not a reserved word
         r"""(?!\d+(?:\.\d*)?(?:[eE][+-]?\d+)?\b)"""  # not a number
         r"(?=[A-Za-z_])"  # must start with a letter or underscore
         r"""[^()'"\s]+"""  # match token
@@ -114,7 +132,7 @@ def compute_last_token_pattern(grammar_text: str) -> str:
     return f"/{last_token_pattern}/"
 
 
-def main(file_out: Path | None = None):
+def main(file_out: Path | None = None, remove_hidden_tokens: bool = False):
     from molselect.python.config import config
     from tempfile import NamedTemporaryFile
     """
@@ -166,6 +184,10 @@ def main(file_out: Path | None = None):
 
     # final injection
     final = interim.replace("<<LAST_TOKEN>>", last_tok)
+
+    if remove_hidden_tokens:
+        # Remove hidden tokens (those starting with a question mark)
+        final = re.sub(r'(?m)^(\s*)\?([A-Za-z_]\w*)(\s*:)', r'\1\2\3', final)
 
     #Write to a temporary file or the specified output file
     if file_out is None:
