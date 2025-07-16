@@ -1,6 +1,6 @@
 {
   "macros": {
-    "hidden": {
+    "Ions": {
       "_pdb_ions": {
         "name": "_pdb_ions",
         "synonyms": [],
@@ -16,7 +16,7 @@
         "definition": "resname CAL CES CLA POT SOD ZN2"
       }
     },
-    "biomolecules": {
+    "Biomolecules": {
       "protein": {
         "name": "protein",
         "synonyms": ["is_protein"],
@@ -125,7 +125,7 @@
         "definition": "not (protein or sugar or nucleic or lipid)"
       }
     },
-    "residue_types_aromaticity": {
+    "Aromaticity": {
       "aromatic": {
         "name": "aromatic",
         "synonyms": [],
@@ -141,7 +141,7 @@
         "definition": "resname ALA GLY ILE LEU VAL"
       }
     },
-    "residue_types_polarity": {
+    "Polarity": {
       "polar": {
         "name": "polar",
         "synonyms": [],
@@ -157,7 +157,7 @@
         "definition": "resname ALA LEU VAL ILE PRO PHE MET TRP"
       }
     },
-    "residue_types_charge": {
+    "Charge": {
       "charged": {
         "name": "charged",
         "synonyms": [],
@@ -187,7 +187,7 @@
         "definition": "resname VAL PHE GLN TYR HIS CYS MET TRP ASX GLX PCA HYP"
       }
     },
-    "residue_types_cyclic": {
+    "Cyclic": {
       "acyclic": {
         "name": "acyclic",
         "synonyms": [],
@@ -203,7 +203,7 @@
         "definition": "resname HIS PHE PRO TRP TYR"
       }
     },
-    "residue_types_nucleotide_size": {
+    "Nucleotide Size": {
       "purine": {
         "name": "purine",
         "synonyms": [],
@@ -219,7 +219,7 @@
         "definition": "resname DC C DT T DU U CYT THY URI"
       }
     },
-    "residue_types_nucleotide_pairs": {
+    "Nucleotide Pairs": {
       "cg": {
         "name": "cg",
         "synonyms": ["gc"],
@@ -238,7 +238,7 @@
         "definition": "resname DT T DU U DA A"
       }
     },
-    "residue_types_nonpolymer": {
+    "Nonpolymer": {
       "hetero": {
         "name": "hetero",
         "synonyms": ["hetatm"],
@@ -247,7 +247,7 @@
         "definition": "not (protein or nucleic)"
       }
     },
-    "residue_types_exposed": {
+    "Exposure": {
       "buried": {
         "name": "buried",
         "synonyms": [],
@@ -267,7 +267,7 @@
         "definition": "resname ARG ASN ASP GLN GLU GLY HIS LYS PRO SER THR TYR"
       }
     },
-    "residue_types_size": {
+    "Size": {
       "small": {
         "name": "small",
         "synonyms": [],
@@ -296,7 +296,7 @@
         "definition": "resname ARG GLN GLU HIS ILE LEU LYS MET PHE TRP TYR"
       }
     },
-    "residue_types_backbone": {
+    "Backbone": {
       "backbone": {
         "name": "backbone",
         "synonyms": ["bb"],
@@ -329,7 +329,7 @@
         }
       }
     },
-    "residue_types_sidechain": {
+    "Sidechain": {
       "sidechain": {
         "name": "sidechain",
         "synonyms": ["sc"],
@@ -341,7 +341,7 @@
         "definition": "protein and not backbonefull"
       }
     },
-    "structure": {
+    "Secondary Structure": {
       "helix": {
         "name": "helix",
         "synonyms": ["alpha"],
@@ -443,7 +443,7 @@
         "definition": "structure S"
       }
     },
-    "prody": {
+    "ProDy Definitions": {
       "stdaa": {
         "name": "stdaa",
         "synonyms": [],
@@ -494,7 +494,7 @@
         "definition": "nucleobase or nucleotide or nucleoside"
       }
     },
-    "elements": {
+    "Elements": {
       "hydrogen": {
         "name": "hydrogen",
         "short": "hydrogen atoms",

@@ -32,7 +32,7 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
     Returns (block_text, names_alternation, category_rules)
     - block_text: all token rules, grouped by category, with comments
     - names_alternation: all token names (for | alternation)
-    - category_rules: one rule per category, e.g. ?bool_biomolecule: PROTEIN | NUCLEIC | ...
+    - category_rules: one rule per category, e.g. ?bool_biomolecules: PROTEIN | NUCLEIC | ...
     """
     lines = []
     names = []
@@ -72,7 +72,7 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
             cat_tokens.append(macro_token)
         # Add a category rule if there are tokens
         if cat_tokens:
-            # Use category name for rule, e.g. bool_biomolecule
+            # Always lower and replace spaces by underscores for rule name
             rule_name = f"{prefix}_{category.lower().replace(' ', '_')}"
             category_rule = f"?{rule_name}: " + " | ".join(cat_tokens)
             lines.append(category_rule)
