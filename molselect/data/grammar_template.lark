@@ -5,6 +5,7 @@
 %import common.NUMBER
 %import common.ESCAPED_STRING
 %import common.WS_INLINE
+%import common.SIGNED_NUMBER
 %ignore WS_INLINE
 
 // Ignore Python-style comments
@@ -65,7 +66,6 @@ property_selection: math_expr _IN? property_item+
               | quoted_string_value
               | string_value
               | number_expr
-              | "`" property_item "`"
 
 range_value: number_expr _TO number_expr     
            | number_expr _COLON number_expr  
@@ -117,8 +117,9 @@ regex_value: ESCAPED_STRING | TRIPLE_DOUBLE_QUOTED_STRING
             | constant                          -> const
             | _MINUS num_primary                -> neg
             | _PLUS num_primary                 -> pos
+            | "`" SIGNED_NUMBER "`"
             | function_name "(" number_expr ")" -> func
-            | "(" number_expr ")"         
+            | "(" number_expr ")"    
 
 
 
@@ -213,16 +214,16 @@ COMMA     : ","
 ?range_op : _TO | _COLON | COMMA
 
 // COMPARISON TOKENS
-_SAME      : "same"
-_AS        : "as"
-WITHIN    : "within"
-EXWITHIN  : "exwithin"
-_OF        : "of"
-BONDED    : "bonded"
-EXBONDED  : "exbonded"
-_TO      : "to"    
-_SEQUENCE  : "sequence"
-_IN : "in"
+_SAME      : /same\b/
+_AS        : /as\b/
+WITHIN    : /within\b/
+EXWITHIN  : /exwithin\b/
+_OF        : /of\b/
+BONDED    : /bonded\b/
+EXBONDED  : /exbonded\b/
+_TO      : /to\b/    
+_SEQUENCE  : /sequence\b/
+_IN : /in\b/
 
 ?within_op: WITHIN | EXWITHIN
 ?bonded_op : BONDED | EXBONDED
