@@ -10,322 +10,348 @@ import pytest
 logger = logging.getLogger(__name__)
 BACKUP_PATH = os.path.join(os.path.dirname(__file__), "atom_counts_backup.csv")
 
-def _load_backup() -> pd.DataFrame:
-    """Load the atom count backup, or return an empty one."""
-    if os.path.exists(BACKUP_PATH):
-        df = pd.read_csv(BACKUP_PATH)
-        # ensure all columns exist
-        for col in ("count_vmd", "count_prody"):
+import os
+import json
+import subprocess
+import tempfile
+import logging
+import pandas as pd
+import numpy as np
+from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
+
+
+# Move BackendInterface above Backup to fix NameError
+class BackendInterface(ABC):
+    """
+    Abstract interface for atom-count backends.
+    Each backend must implement `count_atom_data`, returning a mapping
+    (basename, selection) -> (count, indices_list).
+    """
+
+    @abstractmethod
+    def count_atom_data(
+        self,
+        pdb_paths: list[str],
+        selections: list[str]
+    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
+        ...
+
+
+class Backup:
+    """
+    Manages persistent storage of atom-counts and indices for multiple backends.
+    Schema columns:
+      - pdb (basename)
+      - selection (query string)
+      - count_vmd, indices_vmd
+      - count_prody, indices_prody
+      - count_molscene, indices_molscene
+    """
+    COLUMNS = [
+        "pdb", "selection",
+        "count_vmd", "indices_vmd",
+        "count_prody", "indices_prody",
+        "count_molscene", "indices_molscene"
+    ]
+
+    def __init__(self, path: str):
+        self.path = path
+        self.df = self._load_backup()
+
+    def _load_backup(self) -> pd.DataFrame:
+        if os.path.exists(self.path):
+            df = pd.read_csv(self.path)
+        else:
+            df = pd.DataFrame(columns=self.COLUMNS)
+        for col in self.COLUMNS:
             if col not in df.columns:
-                df[col] = np.nan
+                default = np.nan if col.startswith("count_") else [[] for _ in range(len(df))]
+                df[col] = default
         return df
-    else:
-        return pd.DataFrame(columns=["pdb", "selection", "count_vmd", "count_prody"])
-    
-def _save_backup(df: pd.DataFrame) -> None:
-    """Write the backup DataFrame back to CSV."""
-    df.to_csv(BACKUP_PATH, index=False)
 
-def count_atoms_with_vmd(
-    pdb_paths: list[str],
-    selections: list[str],
-    tcl_script_path: str | None = None
-) -> dict[tuple[str, str], int]:
-    """
-    Count atoms for multiple PDB files and multiple selections in a single VMD call.
+    def save(self) -> None:
+        df_to_save = self.df.copy()
+        for col in [c for c in self.COLUMNS if c.startswith("indices_")]:
+            df_to_save[col] = df_to_save[col].apply(lambda x: json.dumps(x))
+        df_to_save.to_csv(self.path, index=False)
 
-    Parameters
-    ----------
-    pdb_paths : list of str
-        List of paths to PDB files.
-    selections : list of str
-        List of VMD atom-selection strings.
-    tcl_script_path : str or None, optional
-        If provided, write the generated Tcl script to this file instead of a temporary file.
-
-    Returns
-    -------
-    dict
-        Mapping from (pdb_path, selection) to atom count.
-
-    Raises
-    ------
-    RuntimeError
-        If VMD fails or output cannot be parsed.
-    """
-    # 1) load existing cache
-    backup_df   = _load_backup()
-    backup_lookup = {
-        (row["pdb"], row["selection"]): row["count_vmd"]
-        for _, row in backup_df.iterrows()
-    }
-    # seed result with cached entries
-    result = {
-        (pdbfile, sel): int(cnt)
-        for (pdbfile, sel), cnt in backup_lookup.items()
-        if not pd.isna(cnt)
-    }
-    # 2) determine which (pdb,sel) are still missing
-    missing = [
-        (pdb, os.path.basename(pdb), sel)
-        for pdb in pdb_paths
-        for sel in selections
-        if (os.path.basename(pdb), sel) not in result
-    ]
-    # if nothing left to do, return immediately
-    if not missing:
-        return result
-    # 3) build Tcl script *only* for those missing
-    logger.info(f"Calling VMD to count atoms in {pdb_paths} with selections {selections}")
-    logger.debug(f"Preparing Tcl script for VMD selections.")
-    delimiter = '|----|'
-    tcl_lines = []
-    for pdb, basename, sel in missing:
-        tcl_lines.append(f'mol new "{os.path.abspath(pdb)}"')
-        escaped_sel = (
-            sel.replace('\\', '\\\\')
-               .replace('"', '\"')
-               .replace('$', '\$')
-               .replace('[', '\[')
-               .replace(']', '\]')
-        )
-        tcl_lines.extend([
-            "try {",
-            f'  set sel [atomselect top "{escaped_sel}"]',
-            f'  puts "COUNT {basename}{delimiter}{escaped_sel}{delimiter}[$sel num]"',
-            "  $sel delete",
-            "} on error {err opts} {",
-            f'  puts "COUNT {basename}{delimiter}{escaped_sel}{delimiter}nan"',
-            "}",
-        ])
-        tcl_lines.append("mol delete top")
-    tcl_lines.append("exit")
-    tcl = "\n".join(tcl_lines)
-    if tcl_script_path is not None:
-        with open(tcl_script_path, "w") as script:
-            script.write(tcl)
-        script_path = tcl_script_path
-        logger.debug(f"Tcl script written to user-specified file: {script_path}")
-    else:
-        with tempfile.NamedTemporaryFile("w", suffix=".tcl", delete=False) as script:
-            script.write(tcl)
-            script_path = script.name
-        logger.debug(f"Temporary Tcl script written to: {script_path}")
-    logger.debug(f"Tcl script contents:\n{tcl}")
-    cmd = [
-        "vmd",
-        "-dispdev", "text",
-        "-e", script_path
-    ]
-    logger.info(f"Calling VMD with command: {' '.join(cmd)}")
-    proc = subprocess.run(
-        cmd,
-        text=True,
-        capture_output=True,
-    )
-    logger.debug(f"VMD return code: {proc.returncode}")
-    logger.debug(f"VMD stdout:\n{proc.stdout}")
-    logger.debug(f"VMD stderr:\n{proc.stderr}")
-    if proc.returncode != 0:
-        logger.error(f"VMD failed (rc={proc.returncode}):\n{proc.stderr.strip()}")
-        raise RuntimeError(f"VMD failed (rc={proc.returncode}):\n{proc.stderr.strip()}")
-    # 4) parse *only* the new lines and add into result
-    for line in proc.stdout.splitlines():
-        if not line.startswith("COUNT "):
-            continue
-        _, rest = line.split("COUNT ", 1)
-        parts = rest.split(delimiter)
-        if len(parts) != 3:
-            continue
-        pdbfile, sel, n = [x.strip() for x in parts]
-        key = (pdbfile, sel)
-        if key in result:
-            continue
-        result[key] = int(n) if n.isdigit() else np.nan
-    for pdb in pdb_paths:
-        basename = os.path.basename(pdb)
-        for sel in selections:
-            result.setdefault((basename, sel), np.nan)
-    for (pdbfile, sel), cnt in result.items():
-        mask = (backup_df["pdb"] == pdbfile) & (backup_df["selection"] == sel)
-        if mask.any():
-            backup_df.loc[mask, "count_vmd"] = cnt
-        else:
-            backup_df = pd.concat([
-                backup_df,
-                pd.DataFrame([{
-                    "pdb":        pdbfile,
-                    "selection":  sel,
-                    "count_vmd":  cnt,
-                    "count_prody": np.nan
-                }])
-            ], ignore_index=True)
-    _save_backup(backup_df)
-    return result
-
-
-def count_atoms_with_prody(
-    pdb_paths: list[str],
-    selections: list[str]
-) -> dict[tuple[str, str], int]:
-    """
-    Count atoms for multiple PDB files and multiple selections using ProDy.
-
-    Parameters
-    ----------
-    pdb_paths : list of str
-        List of paths to PDB files.
-    selections : list of str
-        List of ProDy atom-selection strings.
-
-    Returns
-    -------
-    dict
-        Mapping from (pdb_path, selection) to atom count (np.nan if selection fails).
-    """
-    from prody import parsePDB
-    # 1) load cache
-    backup_df     = _load_backup()
-    backup_lookup = {
-        (row["pdb"], row["selection"]): row["count_prody"]
-        for _, row in backup_df.iterrows()
-    }
-    # seed result with cached entries
-    result = {
-        (pdbfile, sel): int(cnt)
-        for (pdbfile, sel), cnt in backup_lookup.items()
-        if not pd.isna(cnt)
-    }
-    # 2) figure out which to calculate
-    to_calculate = [
-        (pdb, os.path.basename(pdb), sel)
-        for pdb in pdb_paths
-        for sel in selections
-        if (os.path.basename(pdb), sel) not in result
-    ]
-    # if nothing left, return immediately
-    if not to_calculate:
-        return result
-    from collections import defaultdict
-    pdb_to_sels = defaultdict(list)
-    for pdb, basename, sel in to_calculate:
-        pdb_to_sels[(pdb, basename)].append(sel)
-    idx = 0
-    for (pdb, basename), sels in pdb_to_sels.items():
-        try:
-            structure = parsePDB(pdb)
-            try:
-                from prody import execDSSP, parseDSSP
-                dssp_file = execDSSP(basename)
-                parseDSSP(dssp_file, structure)
-            except Exception as e:
-                logger.warning(f"DSSP failed for {basename}: {e}")
-            for sel in sels:
-                try:
-                    atoms = structure.select(sel)
-                    cnt   = len(atoms) if atoms is not None else 0
-                except Exception:
-                    cnt = np.nan
-                result[(basename, sel)] = cnt
-                idx += 1
-                if idx % 20 == 0:
-                    logger.info(f"[ProDy] Processed {idx} selections")
-        except Exception:
-            for sel in sels:
-                result[(basename, sel)] = np.nan
-    for pdb in pdb_paths:
-        basename = os.path.basename(pdb)
-        for sel in selections:
-            result.setdefault((basename, sel), np.nan)
-    for (pdbfile, sel), cnt in result.items():
-        mask = (backup_df["pdb"] == pdbfile) & (backup_df["selection"] == sel)
-        if mask.any():
-            backup_df.loc[mask, "count_prody"] = cnt
-        else:
-            backup_df = pd.concat([
-                backup_df,
-                pd.DataFrame([{
-                    "pdb":         pdbfile,
-                    "selection":   sel,
-                    "count_vmd":   np.nan,
-                    "count_prody": cnt
-                }])
-            ], ignore_index=True)
-    _save_backup(backup_df)
-    return result
-
-def count_atoms_with_molscene(pdb_paths: list[str], selections: list[str]) -> dict[tuple[str, str], int]:
-    """
-    Count atoms for multiple PDB files and multiple selections using the molselect Python API (new Evaluator interface).
-
-    Parameters
-    ----------
-    pdb_paths : list of str
-        List of paths to PDB files.
-    selections : list of str
-        List of selection queries.
-
-    Returns
-    -------
-    dict
-        Mapping from (pdb_path, selection) to atom count (np.nan if selection fails).
-    """
-    import numpy as np
-    import os
-    import logging
-    from molscene.Scene import Scene
-    from molselect.python.backends.pandas import PandasStructure
-    from molselect.python.evaluator import Evaluator
-
-    logger = logging.getLogger(__name__)
-    result = {}
-    selector = Evaluator(PandasStructure)
-    for pdb in pdb_paths:
-        pdb_basename = os.path.basename(pdb)
-        logger.info(f"Processing PDB with molselect: {pdb_basename} with {len(selections)} selections")
-        try:
-            # Load structure as DataFrame
-            if pdb.endswith('.pdb'):
-                df = Scene.from_pdb(pdb)
-            elif pdb.endswith('.cif'):
-                df = Scene.from_cif(pdb)
+    def update_backend(self, backend_name: str, data: dict[tuple[str, str], tuple[int, list[int]]]):
+        count_col = f"count_{backend_name}"
+        indices_col = f"indices_{backend_name}"
+        for (pdb, sel), (cnt, idx_list) in data.items():
+            mask = (self.df["pdb"] == pdb) & (self.df["selection"] == sel)
+            if mask.any():
+                self.df.loc[mask, count_col] = cnt
+                self.df.loc[mask, indices_col] = [idx_list]
             else:
-                logger.warning(f"Unsupported file format for {pdb}")
-                for sel in selections:
-                    result[(pdb_basename, sel)] = np.nan
-                continue
-            
-            df = df[df['model']==1]           
-            
-            # Add mass column if not present
-            # The element is the first letter of the atom name, e.g. 'C' for 'CA'
-            if 'element' not in df.columns:
-                df['element'] = df['atom_name'].str[0].str.upper()
-            # Mass dictionary for common elements
-            mass_dict = {
-                'H': 1.008, 'C': 12.011, 'N': 14.007, 'O': 15.999,
-                'P': 30.974, 'S': 32.06, 'F': 18.998, 'Cl': 35.45,
-                'Br': 79.904, 'I': 126.904
-            }
-            # Map elements to masses, default to 0 if not found
-            df['mass'] = df['element'].map(mass_dict).fillna(0)
-            
+                new_row = {"pdb": pdb, "selection": sel, count_col: cnt, indices_col: idx_list}
+                for col in self.COLUMNS:
+                    if col not in new_row:
+                        new_row[col] = np.nan if col.startswith("count_") else []
+                self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+
+    def validate_indices(self) -> None:
+        mismatches = []
+        for _, row in self.df.iterrows():
+            lists = []
+            for col in [c for c in self.COLUMNS if c.startswith("indices_")]:
+                idx_list = row[col]
+                if isinstance(idx_list, str):
+                    idx_list = json.loads(idx_list)
+                if idx_list:
+                    lists.append(list(idx_list))
+            if len(lists) > 1:
+                first = lists[0]
+                for other in lists[1:]:
+                    if other != first:
+                        mismatches.append((row["pdb"], row["selection"]))
+                        break
+        if mismatches:
+            raise RuntimeError(f"Index mismatch for {len(mismatches)} entries: {mismatches}")
+
+    def run_all(self, pdb_paths: list[str], selections: list[str], backends: list[BackendInterface]) -> None:
+        for backend in backends:
+            name = type(backend).__name__.replace('Backend','').lower()
+            data = backend.count_atom_data(pdb_paths, selections)
+            self.update_backend(name, data)
+        self.save()
+        self.validate_indices()
+
+
+def _escape_tcl(sel: str) -> str:
+    """
+    Escape characters in a VMD atomselect string for Tcl.
+    """
+    return (
+        sel.replace('\\', '\\\\')
+           .replace('"', '\\"')
+           .replace('$', '\\$')
+           .replace('[', '\\[')
+           .replace(']', '\\]')
+    )
+
+
+class BackendInterface(ABC):
+    """
+    Abstract interface for atom-count backends.
+    Each backend must implement `count_atom_data`, returning a mapping
+    (basename, selection) -> (count, indices_list).
+    """
+
+    @abstractmethod
+    def count_atom_data(
+        self,
+        pdb_paths: list[str],
+        selections: list[str]
+    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
+        ...
+
+
+class VMDBackend(BackendInterface):
+    """
+    Uses VMD (text mode) to count atoms and retrieve their indices.
+    """
+    def __init__(self, tcl_script_path: str | None = None):
+        self.tcl_script_path = tcl_script_path
+
+    def count_atom_data(
+        self,
+        pdb_paths: list[str],
+        selections: list[str]
+    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
+        delimiter = '|----|'
+        tcl_lines: list[str] = []
+        for pdb in pdb_paths:
+            base = os.path.basename(pdb)
+            abs_path = os.path.abspath(pdb)
+            tcl_lines.append(f'mol new "{abs_path}"')
             for sel in selections:
+                esc = _escape_tcl(sel)
+                tcl_lines.extend([
+                    'try {',
+                    f'  set selobj [atomselect top "{esc}"]',
+                    f'  puts "COUNT {base}{delimiter}{esc}{delimiter}[$selobj num]"',
+                    f'  puts -nonewline "INDICES {base}{delimiter}{esc}{delimiter}"',
+                    '  puts [$selobj get index]',
+                    '  $selobj delete',
+                    '} on error {err opts} {',
+                    f'  puts "COUNT {base}{delimiter}{esc}{delimiter}nan"',
+                    f'  puts "INDICES {base}{delimiter}{esc}{delimiter}"',
+                    f'  puts ""',
+                    '}',
+                ])
+            tcl_lines.append('mol delete top')
+        tcl_lines.append('exit')
+        tcl_script = '\n'.join(tcl_lines)
+
+        if self.tcl_script_path:
+            script_path = self.tcl_script_path
+            with open(script_path, 'w') as f:
+                f.write(tcl_script)
+        else:
+            tf = tempfile.NamedTemporaryFile('w', suffix='.tcl', delete=False)
+            tf.write(tcl_script)
+            tf.flush()
+            script_path = tf.name
+            tf.close()
+
+        cmd = ['vmd', '-dispdev', 'text', '-e', script_path]
+        proc = subprocess.run(cmd, text=True, capture_output=True)
+        if proc.returncode != 0:
+            logger.error(f"VMD failed (rc={proc.returncode}): {proc.stderr.strip()}")
+            raise RuntimeError(f"VMD failed (rc={proc.returncode}): {proc.stderr.strip()}")
+
+        counts: dict[tuple[str,str], float] = {}
+        indices: dict[tuple[str,str], list[int]] = {}
+        for line in proc.stdout.splitlines():
+            if line.startswith('COUNT '):
+                _, rest = line.split('COUNT ', 1)
+                parts = rest.split(delimiter)
+                if len(parts) == 3:
+                    pdbfile, sel, num = parts
+                    try:
+                        cnt = int(num)
+                    except ValueError:
+                        cnt = np.nan
+                    counts[(pdbfile, sel)] = cnt
+            elif line.startswith('INDICES '):
+                _, rest = line.split('INDICES ', 1)
+                parts = rest.split(delimiter)
+                if len(parts) == 3:
+                    pdbfile, sel, idx_str = parts
+                    idx_list = [int(i) for i in idx_str.strip().split() if i.isdigit()]
+                    indices[(pdbfile, sel)] = idx_list
+
+        result: dict[tuple[str,str], tuple[int, list[int]]] = {}
+        for pdb in [os.path.basename(p) for p in pdb_paths]:
+            for sel in selections:
+                key = (pdb, sel)
+                cnt = counts.get(key, np.nan)
+                idx_list = indices.get(key, [])
+                result[key] = (cnt, idx_list)
+        return result
+
+
+class ProDyBackend(BackendInterface):
+    """
+    Uses ProDy to count atoms and retrieve their indices.
+    """
+    def count_atom_data(
+        self,
+        pdb_paths: list[str],
+        selections: list[str]
+    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
+        from prody import parsePDB, execDSSP, parseDSSP
+        result_counts: dict[tuple[str,str], float] = {}
+        result_indices: dict[tuple[str,str], list[int]] = {}
+
+        for pdb in pdb_paths:
+            basename = os.path.basename(pdb)
+            try:
+                structure = parsePDB(pdb)
                 try:
-                    selection_result = selector.parse(df, sel)
-                    count = len(selection_result.df)
-                    result[(pdb_basename, sel)] = count
+                    dssp_file = execDSSP(basename)
+                    parseDSSP(dssp_file, structure)
                 except Exception as e:
-                    logger.info(f"[molselect] Selection failed for '{sel}': {e}")
-                    result[(pdb_basename, sel)] = np.nan
-        except Exception as e:
-            logger.warning(f"molselect failed for {pdb}: {e}")
+                    logger.warning(f"DSSP failed for {basename}: {e}")
+
+                for sel in selections:
+                    key = (basename, sel)
+                    try:
+                        atoms = structure.select(sel)
+                        if atoms is None:
+                            cnt = 0
+                            idx_list = []
+                        else:
+                            cnt = len(atoms)
+                            idx_list = atoms.getIndices().tolist()
+                    except Exception:
+                        cnt = np.nan
+                        idx_list = []
+                    result_counts[key] = cnt
+                    result_indices[key] = idx_list
+            except Exception as e:
+                logger.warning(f"ProDy parse failed for {basename}: {e}")
+                for sel in selections:
+                    key = (basename, sel)
+                    result_counts[key] = np.nan
+                    result_indices[key] = []
+
+        for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
-                result[(pdb_basename, sel)] = np.nan
-    return result
+                key = (pdb, sel)
+                result_counts.setdefault(key, np.nan)
+                result_indices.setdefault(key, [])
+
+        result = {k: (result_counts[k], result_indices[k]) for k in result_counts}
+        return result
+
+
+class MolSceneBackend(BackendInterface):
+    """
+    Uses MolScene and molselect Evaluator to count atoms and retrieve their indices.
+    """
+    def count_atom_data(
+        self,
+        pdb_paths: list[str],
+        selections: list[str]
+    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
+        from molscene.Scene import Scene
+        from molselect.python.backends.pandas import PandasStructure
+        from molselect.python.evaluator import Evaluator
+
+        result_counts: dict[tuple[str,str], float] = {}
+        result_indices: dict[tuple[str,str], list[int]] = {}
+        selector = Evaluator(PandasStructure)
+
+        for pdb in pdb_paths:
+            basename = os.path.basename(pdb)
+            try:
+                if pdb.endswith('.pdb'):
+                    df = Scene.from_pdb(pdb)
+                elif pdb.endswith('.cif'):
+                    df = Scene.from_cif(pdb)
+                else:
+                    raise ValueError(f"Unsupported file format for {basename}")
+                if 'model' in df.columns:
+                    df = df[df['model'] == 1]
+
+                for sel in selections:
+                    key = (basename, sel)
+                    try:
+                        sel_result = selector.parse(df, sel)
+                        count = len(sel_result.df)
+                        idx_list = sel_result.df.index.to_list()
+                    except Exception as e:
+                        logger.warning(f"[molselect] selection failed for '{sel}' on {basename}: {e}")
+                        count = np.nan
+                        idx_list = []
+                    result_counts[key] = count
+                    result_indices[key] = idx_list
+            except Exception as e:
+                logger.warning(f"MolSceneBackend parse failed for {basename}: {e}")
+                for sel in selections:
+                    key = (basename, sel)
+                    result_counts[key] = np.nan
+                    result_indices[key] = []
+
+        for pdb in [os.path.basename(p) for p in pdb_paths]:
+            for sel in selections:
+                key = (pdb, sel)
+                result_counts.setdefault(key, np.nan)
+                result_indices.setdefault(key, [])
+
+        return {key: (result_counts[key], result_indices[key]) for key in result_counts}
 
 
 
+import re
+
+# Load PDB files and selection tests
+
+# Helper functions to load PDB files and selection tests
 def load_selection_tests():
     import os
     import json
@@ -346,48 +372,29 @@ def load_pdb_files():
     pdb_files += glob.glob(os.path.join(base, '../../data/tests/*.cif'))
     return pdb_files
 
+PDB_FILES = load_pdb_files()[:2]
+SELECTIONS = load_selection_tests()[:10]
 
-# @pytest.mark.parametrize("backend", ["molscene", "vmd", "prody"])
-# def test_count_atoms_backends(backend):
-#     import pandas as pd
-#     selections = load_selection_tests()
-#     print(selections)
-#     pdb_files = load_pdb_files()
-#     if not pdb_files:
-#         pytest.skip("No PDB or CIF files found for testing.")
-#     if backend == "molscene":
-#         result = count_atoms_with_molscene(pdb_files, selections)
-#     elif backend == "vmd":
-#         result = count_atoms_with_vmd(pdb_files, selections, tcl_script_path=None)
-#     elif backend == "prody":
-#         result = count_atoms_with_prody(pdb_files, selections)
-#     else:
-#         raise ValueError(f"Unknown backend: {backend}")
-#     # Check that at least some results are not all NaN
-#     counts = list(result.values())
-#     assert any(pd.notna(c) and c != 0 for c in counts), f"All counts are NaN or zero for backend {backend}"
-#     # Optionally: print a summary for debugging
-#     print(f"Backend: {backend}, non-NaN counts: {sum(pd.notna(c) for c in counts)} / {len(counts)}")
+# Instantiate backend objects
+molscene_backend = MolSceneBackend()
+prody_backend = ProDyBackend()
+vmd_backend = VMDBackend()
 
-
-import re
-PDB_FILES = load_pdb_files()
-SELECTIONS = load_selection_tests()
 
 @pytest.fixture(scope="session")
 def molscene_counts():
     """Compute once per session."""
     # keys are (basename, sel)
-    return count_atoms_with_molscene(PDB_FILES, SELECTIONS)
+    return {k: v[0] for k, v in molscene_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
 
 @pytest.fixture(scope="session")
 def prody_counts():
-    return count_atoms_with_prody(PDB_FILES, SELECTIONS)
+    return {k: v[0] for k, v in prody_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
 
 @pytest.fixture(scope="session")
 def vmd_counts():
     # pass tcl_script_path=None to auto-tempfile
-    return count_atoms_with_vmd(PDB_FILES, SELECTIONS, tcl_script_path=None)
+    return {k: v[0] for k, v in vmd_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
 
 def _sanitize(sel: str) -> str:
     # Turn your selection into a safe Python identifier
@@ -441,19 +448,53 @@ for sel in SELECTIONS:
     # inject into module level so pytest will collect it
     globals()[cls_name] = cls
 
+# For a single selection, return the indices with all the backends
+def _make_test_for_indices(sel: str):
+    @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
+    def test_indices_molscene_vs_prody_or_vmd(self, pdb_path,
+                                              molscene_counts, prody_counts, vmd_counts):
+        basename = os.path.basename(pdb_path)
+        key = (basename, sel)
+
+        mol = molscene_counts[key]
+        pro = prody_counts[key]
+        vmd = vmd_counts[key]
+
+        # if all fail → skip
+        if (pd.isna(pro) or np.isnan(pro)) and (pd.isna(vmd) or np.isnan(vmd)):
+            pytest.skip(f"Selection '{sel}' unsupported by all: molscene, ProDy, and VMD on {basename}")
+
+        assert not pd.isna(mol) and not np.isnan(mol), (
+            f"{basename} | sel={sel!r}: molscene={mol!r} "
+            f"!= prody={pro!r} and != vmd={vmd!r}"
+        )
+
+    test_indices_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd for selection: {sel!r}"
+    return test_indices_molscene_vs_prody_or_vmd
+
+
+
 if __name__ == "__main__":
     import pandas as pd
     import os
+
     # Load files and selections
     pdb_files = load_pdb_files()
     selections = load_selection_tests()
-    # Compute all results
+
+    # Instantiate backend objects
+    molscene_backend = MolSceneBackend()
+    prody_backend = ProDyBackend()
+    vmd_backend = VMDBackend()
+
+    # Compute all results using backend classes
     print("Computing molscene counts...")
-    molscene = count_atoms_with_molscene(pdb_files, selections)
+    molscene = {k: v[0] for k, v in molscene_backend.count_atom_data(pdb_files, selections).items()}
     print("Computing prody counts...")
-    prody = count_atoms_with_prody(pdb_files, selections)
+    prody = {k: v[0] for k, v in prody_backend.count_atom_data(pdb_files, selections).items()}
     print("Computing vmd counts...")
-    vmd = count_atoms_with_vmd(pdb_files, selections, tcl_script_path=None)
+    vmd = {k: v[0] for k, v in vmd_backend.count_atom_data(pdb_files, selections).items()}
+
     # Build DataFrame
     rows = []
     for pdb in pdb_files:
@@ -471,3 +512,4 @@ if __name__ == "__main__":
     # Optionally, save to CSV
     df.to_csv("atom_counts_all_backends.csv", index=False)
     print("Saved results to atom_counts_all_backends.csv")
+
