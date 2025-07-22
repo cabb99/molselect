@@ -8,8 +8,29 @@ import pandas as pd
 import pytest
 
 logger = logging.getLogger(__name__)
+BACKUP_PATH = os.path.join(os.path.dirname(__file__), "atom_counts_backup.csv")
 
-def count_atoms_with_vmd(pdb_paths: list[str], selections: list[str], tcl_script_path: str | None = None) -> dict[tuple[str, str], int]:
+def _load_backup() -> pd.DataFrame:
+    """Load the atom count backup, or return an empty one."""
+    if os.path.exists(BACKUP_PATH):
+        df = pd.read_csv(BACKUP_PATH)
+        # ensure all columns exist
+        for col in ("count_vmd", "count_prody"):
+            if col not in df.columns:
+                df[col] = np.nan
+        return df
+    else:
+        return pd.DataFrame(columns=["pdb", "selection", "count_vmd", "count_prody"])
+    
+def _save_backup(df: pd.DataFrame) -> None:
+    """Write the backup DataFrame back to CSV."""
+    df.to_csv(BACKUP_PATH, index=False)
+
+def count_atoms_with_vmd(
+    pdb_paths: list[str],
+    selections: list[str],
+    tcl_script_path: str | None = None
+) -> dict[tuple[str, str], int]:
     """
     Count atoms for multiple PDB files and multiple selections in a single VMD call.
 
@@ -32,35 +53,54 @@ def count_atoms_with_vmd(pdb_paths: list[str], selections: list[str], tcl_script
     RuntimeError
         If VMD fails or output cannot be parsed.
     """
+    # 1) load existing cache
+    backup_df   = _load_backup()
+    backup_lookup = {
+        (row["pdb"], row["selection"]): row["count_vmd"]
+        for _, row in backup_df.iterrows()
+    }
+    # seed result with cached entries
+    result = {
+        (pdbfile, sel): int(cnt)
+        for (pdbfile, sel), cnt in backup_lookup.items()
+        if not pd.isna(cnt)
+    }
+    # 2) determine which (pdb,sel) are still missing
+    missing = [
+        (pdb, os.path.basename(pdb), sel)
+        for pdb in pdb_paths
+        for sel in selections
+        if (os.path.basename(pdb), sel) not in result
+    ]
+    # if nothing left to do, return immediately
+    if not missing:
+        return result
+    # 3) build Tcl script *only* for those missing
     logger.info(f"Calling VMD to count atoms in {pdb_paths} with selections {selections}")
     logger.debug(f"Preparing Tcl script for VMD selections.")
-
-    delimiter = '|----|' # Use a unique delimiter unlikely to appear in filenames or selections
-    # Build Tcl script to load each PDB and count atoms for each selection
+    delimiter = '|----|'
     tcl_lines = []
-    for pdb in pdb_paths:
-        tcl_lines.append(f"mol new \"{os.path.abspath(pdb)}\"")
-        for sel in selections:
-            escaped_sel = (
-                sel
-                .replace('\\', '\\\\')   # escape backslashes first
-                .replace('"', '\\"')     # escape double-quotes
-                .replace('$', '\\$')     # escape dollar signs (no $VAR substitution)
-                .replace('[', '\\[')     # escape open brackets (no [cmd] substitution)
-                .replace(']', '\\]')     # (optional) escape closing brackets for symmetry
-            )
-            # Use try to catch errors in atomselect and puts
-            tcl_lines.append(f"try {{")
-            tcl_lines.append(f'    set sel [atomselect top "{escaped_sel}"]')
-            tcl_lines.append(f'    puts "COUNT {os.path.basename(pdb)}{delimiter}{escaped_sel}{delimiter}[$sel num]"')
-            tcl_lines.append(f"    $sel delete")
-            tcl_lines.append(f"}} on error {{err opts}} {{")
-            tcl_lines.append(f'    puts "COUNT {os.path.basename(pdb)}{delimiter}{escaped_sel}{delimiter}nan"')
-            tcl_lines.append(f"}}")
+    for pdb, basename, sel in missing:
+        tcl_lines.append(f'mol new "{os.path.abspath(pdb)}"')
+        escaped_sel = (
+            sel.replace('\\', '\\\\')
+               .replace('"', '\"')
+               .replace('$', '\$')
+               .replace('[', '\[')
+               .replace(']', '\]')
+        )
+        tcl_lines.extend([
+            "try {",
+            f'  set sel [atomselect top "{escaped_sel}"]',
+            f'  puts "COUNT {basename}{delimiter}{escaped_sel}{delimiter}[$sel num]"',
+            "  $sel delete",
+            "} on error {err opts} {",
+            f'  puts "COUNT {basename}{delimiter}{escaped_sel}{delimiter}nan"',
+            "}",
+        ])
         tcl_lines.append("mol delete top")
     tcl_lines.append("exit")
     tcl = "\n".join(tcl_lines)
-
     if tcl_script_path is not None:
         with open(tcl_script_path, "w") as script:
             script.write(tcl)
@@ -71,70 +111,63 @@ def count_atoms_with_vmd(pdb_paths: list[str], selections: list[str], tcl_script
             script.write(tcl)
             script_path = script.name
         logger.debug(f"Temporary Tcl script written to: {script_path}")
-
     logger.debug(f"Tcl script contents:\n{tcl}")
-
     cmd = [
         "vmd",
         "-dispdev", "text",
         "-e", script_path
     ]
     logger.info(f"Calling VMD with command: {' '.join(cmd)}")
-
     proc = subprocess.run(
         cmd,
         text=True,
         capture_output=True,
     )
-
     logger.debug(f"VMD return code: {proc.returncode}")
     logger.debug(f"VMD stdout:\n{proc.stdout}")
     logger.debug(f"VMD stderr:\n{proc.stderr}")
-
     if proc.returncode != 0:
         logger.error(f"VMD failed (rc={proc.returncode}):\n{proc.stderr.strip()}")
         raise RuntimeError(f"VMD failed (rc={proc.returncode}):\n{proc.stderr.strip()}")
-
-    # Parse output lines like: COUNT filename<<<DELIM>>>selection<<<DELIM>>>N
-    result = {}
-    found_keys = set()
+    # 4) parse *only* the new lines and add into result
     for line in proc.stdout.splitlines():
-        s = line.strip()
-        if s.startswith("COUNT "):
-            try:
-                _, rest = s.split("COUNT ", 1)
-                parts = rest.split(delimiter)
-                if len(parts) != 3:
-                    logger.warning(f"Unexpected output format: {s}")
-                    continue
-                pdbfile, sel, n = [x.strip() for x in parts]
-                found_keys.add((pdbfile, sel))
-                if n.isdigit():
-                    result[(pdbfile, sel)] = int(n)
-                    logger.info(f"Found atom count: {pdbfile} | {sel} = {n}")
-                else:
-                    result[(pdbfile, sel)] = np.nan
-                    logger.info(f"Invalid selection or count for: {pdbfile} | {sel}, returning np.nan")
-            except Exception as e:
-                logger.warning(f"Failed to parse line: {s} ({e})")
-    # Fill missing (pdb, sel) pairs with np.nan
+        if not line.startswith("COUNT "):
+            continue
+        _, rest = line.split("COUNT ", 1)
+        parts = rest.split(delimiter)
+        if len(parts) != 3:
+            continue
+        pdbfile, sel, n = [x.strip() for x in parts]
+        key = (pdbfile, sel)
+        if key in result:
+            continue
+        result[key] = int(n) if n.isdigit() else np.nan
     for pdb in pdb_paths:
+        basename = os.path.basename(pdb)
         for sel in selections:
-            key = (os.path.basename(pdb), sel)
-            if key not in result:
-                logger.warning(f"Missing count for {key}, setting to np.nan")
-                result[key] = np.nan
-    if not result:
-        logger.error("Could not parse VMD output for atom counts.")
-        raise RuntimeError(
-            "Could not parse VMD output for atom counts.\n"
-            f"Full stdout:\n{proc.stdout}\n"
-            f"Full stderr:\n{proc.stderr}"
-        )
+            result.setdefault((basename, sel), np.nan)
+    for (pdbfile, sel), cnt in result.items():
+        mask = (backup_df["pdb"] == pdbfile) & (backup_df["selection"] == sel)
+        if mask.any():
+            backup_df.loc[mask, "count_vmd"] = cnt
+        else:
+            backup_df = pd.concat([
+                backup_df,
+                pd.DataFrame([{
+                    "pdb":        pdbfile,
+                    "selection":  sel,
+                    "count_vmd":  cnt,
+                    "count_prody": np.nan
+                }])
+            ], ignore_index=True)
+    _save_backup(backup_df)
     return result
 
 
-def count_atoms_with_prody(pdb_paths: list[str], selections: list[str]) -> dict[tuple[str, str], int]:
+def count_atoms_with_prody(
+    pdb_paths: list[str],
+    selections: list[str]
+) -> dict[tuple[str, str], int]:
     """
     Count atoms for multiple PDB files and multiple selections using ProDy.
 
@@ -151,58 +184,74 @@ def count_atoms_with_prody(pdb_paths: list[str], selections: list[str]) -> dict[
         Mapping from (pdb_path, selection) to atom count (np.nan if selection fails).
     """
     from prody import parsePDB
-    logger = logging.getLogger(__name__)
-    result = {}
-    backup_path = os.path.join(os.path.dirname(__file__), "atom_counts_backup.csv")
-    if os.path.exists(backup_path):
-        backup_df = pd.read_csv(backup_path)
-        # Build a lookup for (pdb, selection) -> count
-        backup_lookup = {(row["pdb"], row["selection"]): row["count_prody"] for _, row in backup_df.iterrows()}
-        # Determine which need to be calculated
-        to_calculate = []
-        for pdb in pdb_paths:
-            pdb_basename = os.path.basename(pdb)
-            for sel in selections:
-                key = (pdb_basename, sel)
-                count = backup_lookup.get(key, None)
-                if count is not None and not pd.isna(count):
-                    result[key] = int(count)
-                else:
-                    to_calculate.append((pdb, pdb_basename, sel))
-    else:
-        # If backup does not exist, calculate all
-        to_calculate = [(pdb, os.path.basename(pdb), sel) for pdb in pdb_paths for sel in selections]
-    # Calculate only missing/nan
-    # Group selections to calculate by pdb
+    # 1) load cache
+    backup_df     = _load_backup()
+    backup_lookup = {
+        (row["pdb"], row["selection"]): row["count_prody"]
+        for _, row in backup_df.iterrows()
+    }
+    # seed result with cached entries
+    result = {
+        (pdbfile, sel): int(cnt)
+        for (pdbfile, sel), cnt in backup_lookup.items()
+        if not pd.isna(cnt)
+    }
+    # 2) figure out which to calculate
+    to_calculate = [
+        (pdb, os.path.basename(pdb), sel)
+        for pdb in pdb_paths
+        for sel in selections
+        if (os.path.basename(pdb), sel) not in result
+    ]
+    # if nothing left, return immediately
+    if not to_calculate:
+        return result
     from collections import defaultdict
     pdb_to_sels = defaultdict(list)
-    for pdb, pdb_basename, sel in to_calculate:
-        pdb_to_sels[(pdb, pdb_basename)].append(sel)
+    for pdb, basename, sel in to_calculate:
+        pdb_to_sels[(pdb, basename)].append(sel)
     idx = 0
-    for (pdb, pdb_basename), sels in pdb_to_sels.items():
+    for (pdb, basename), sels in pdb_to_sels.items():
         try:
             structure = parsePDB(pdb)
             try:
                 from prody import execDSSP, parseDSSP
-                dssp_file = execDSSP(pdb_basename)
+                dssp_file = execDSSP(basename)
                 parseDSSP(dssp_file, structure)
             except Exception as e:
-                logger.warning(f"calcDSSP failed for {pdb_basename}: {e}")
+                logger.warning(f"DSSP failed for {basename}: {e}")
             for sel in sels:
                 try:
                     atoms = structure.select(sel)
-                    count = len(atoms) if atoms is not None else 0
-                    result[(pdb_basename, sel)] = count
-                except Exception as e:
-                    logger.warning(f"Failed to select for {pdb_basename}, {sel}: {e}")
-                    result[(pdb_basename, sel)] = np.nan
+                    cnt   = len(atoms) if atoms is not None else 0
+                except Exception:
+                    cnt = np.nan
+                result[(basename, sel)] = cnt
                 idx += 1
                 if idx % 20 == 0:
                     logger.info(f"[ProDy] Processed {idx} selections")
-        except Exception as e:
-            logger.warning(f"Failed to parse for {pdb_basename}: {e}")
+        except Exception:
             for sel in sels:
-                result[(pdb_basename, sel)] = np.nan
+                result[(basename, sel)] = np.nan
+    for pdb in pdb_paths:
+        basename = os.path.basename(pdb)
+        for sel in selections:
+            result.setdefault((basename, sel), np.nan)
+    for (pdbfile, sel), cnt in result.items():
+        mask = (backup_df["pdb"] == pdbfile) & (backup_df["selection"] == sel)
+        if mask.any():
+            backup_df.loc[mask, "count_prody"] = cnt
+        else:
+            backup_df = pd.concat([
+                backup_df,
+                pd.DataFrame([{
+                    "pdb":         pdbfile,
+                    "selection":   sel,
+                    "count_vmd":   np.nan,
+                    "count_prody": cnt
+                }])
+            ], ignore_index=True)
+    _save_backup(backup_df)
     return result
 
 def count_atoms_with_molscene(pdb_paths: list[str], selections: list[str]) -> dict[tuple[str, str], int]:
@@ -247,6 +296,20 @@ def count_atoms_with_molscene(pdb_paths: list[str], selections: list[str]) -> di
                 continue
             
             df = df[df['model']==1]           
+            
+            # Add mass column if not present
+            # The element is the first letter of the atom name, e.g. 'C' for 'CA'
+            if 'element' not in df.columns:
+                df['element'] = df['atom_name'].str[0].str.upper()
+            # Mass dictionary for common elements
+            mass_dict = {
+                'H': 1.008, 'C': 12.011, 'N': 14.007, 'O': 15.999,
+                'P': 30.974, 'S': 32.06, 'F': 18.998, 'Cl': 35.45,
+                'Br': 79.904, 'I': 126.904
+            }
+            # Map elements to masses, default to 0 if not found
+            df['mass'] = df['element'].map(mass_dict).fillna(0)
+            
             for sel in selections:
                 try:
                     selection_result = selector.parse(df, sel)
@@ -337,7 +400,7 @@ def _make_test_for(sel: str):
     Return a single test function that closes over `sel` and is parametrized
     over all pdb_paths.
     """
-    @pytest.mark.skip()
+    # @pytest.mark.skip()
     @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
     def test_molscene_vs_prody_or_vmd(self, pdb_path,
                                       molscene_counts, prody_counts, vmd_counts):
@@ -377,3 +440,34 @@ for sel in SELECTIONS:
     setattr(cls, "test_molscene", _make_test_for(sel))
     # inject into module level so pytest will collect it
     globals()[cls_name] = cls
+
+if __name__ == "__main__":
+    import pandas as pd
+    import os
+    # Load files and selections
+    pdb_files = load_pdb_files()
+    selections = load_selection_tests()
+    # Compute all results
+    print("Computing molscene counts...")
+    molscene = count_atoms_with_molscene(pdb_files, selections)
+    print("Computing prody counts...")
+    prody = count_atoms_with_prody(pdb_files, selections)
+    print("Computing vmd counts...")
+    vmd = count_atoms_with_vmd(pdb_files, selections, tcl_script_path=None)
+    # Build DataFrame
+    rows = []
+    for pdb in pdb_files:
+        basename = os.path.basename(pdb)
+        for sel in selections:
+            rows.append({
+                "pdb": basename,
+                "selection": sel,
+                "count_molscene": molscene.get((basename, sel), pd.NA),
+                "count_prody": prody.get((basename, sel), pd.NA),
+                "count_vmd": vmd.get((basename, sel), pd.NA),
+            })
+    df = pd.DataFrame(rows)
+    print(df)
+    # Optionally, save to CSV
+    df.to_csv("atom_counts_all_backends.csv", index=False)
+    print("Saved results to atom_counts_all_backends.csv")
