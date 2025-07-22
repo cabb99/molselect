@@ -304,7 +304,7 @@
           "Residues defined for the 'backbone' flag in ProDy",
           "Residues: C, CA, N, O"
         ],
-        "definition": "(protein and name C CA N O) or (nucleic and name P O1P O2P \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" \"C3*\" \"C4*\" \"C5*\" \"O3*\" \"O5*\")"
+        "definition": "(protein and name C CA N O) or (nucleic and name P OP1 OP2 \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" 'C3*' 'C4*' 'C5*' 'O3*' 'O5*')"
       },
       "backbonefull": {
         "name": "backbonefull",
