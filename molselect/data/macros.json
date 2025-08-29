@@ -499,14 +499,14 @@
         "name": "hydrogen",
         "short": "hydrogen atoms",
         "description": "Hydrogen atoms (H).",
-        "definition": "name \"H*\""
+        "definition": "element H"
       },
       "carbon": {
         "name": "carbon",
         "synonyms": [],
         "short": "carbon atoms",
         "description": "Carbon atoms (C).",
-        "definition": "name \"C*\"",
+        "definition": "element C",
         "regex_substitution": {
           "carbon": "/carbon\\b/"
         }
@@ -516,35 +516,35 @@
         "synonyms": [],
         "short": "nitrogen atoms",
         "description": "Nitrogen atoms (N).",
-        "definition": "name \"N*\""
+        "definition": "element N"
       },
       "oxygen": {
         "name": "oxygen",
         "synonyms": [],
         "short": "oxygen atoms",
         "description": "Oxygen atoms (O).",
-        "definition": "name \"O*\""
+        "definition": "element O"
       },
       "phosphorus": {
         "name": "phosphorus",
         "synonyms": [],
         "short": "phosphorus atoms",
         "description": "Phosphorus atoms (P).",
-        "definition": "name \"P*\""
+        "definition": "element P"
       },
       "sulfur": {
         "name": "sulfur",
         "synonyms": [],
         "short": "sulfur atoms",
         "description": "Sulfur atoms (S).",
-        "definition": "name \"S*\""
+        "definition": "element S"
       },
       "noh": {
         "name": "noh",
         "synonyms": [],
         "short": "non-hydrogen atoms",
         "description": "All atoms except hydrogen.",
-        "definition": "not name \"H*\""
+        "definition": "not element H"
       }
     }
   }
