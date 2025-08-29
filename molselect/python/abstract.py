@@ -262,10 +262,10 @@ class Within(Node):
         dists = s.minimum_pairwise_distances(s.select(mask))
         if not mask.any():
             return s.array_filled(False)
-        if self.mode == "within":
-            result = (dists <= distance)
-        else:
-            result = (dists > distance)
+        dists = s.minimum_pairwise_distances(s.select(mask))
+        result = (dists <= distance)
+        if self.mode == "exwithin":
+            result[mask] = False
         return s.array_values(result)
 
 @dataclass
