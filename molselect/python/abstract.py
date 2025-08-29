@@ -240,12 +240,12 @@ class Regex(Node):
         col = self.field.evaluate(s)
         pattern = self.pattern.evaluate(s)
         # Use protocol method if available
-        if hasattr(col, 'str_contains'):
-            return col.str_contains(pattern, regex=True)
+        if hasattr(col, 'str'):
+            return col.str.fullmatch(pattern)
         # Fallback: elementwise regex
         import re
         regex = re.compile(pattern)
-        found = s.array_values([bool(regex.search(str(x))) for x in col.data])
+        found = s.array_values([bool(regex.fullmatch(str(x))) for x in col.data])
         return found
 
 
