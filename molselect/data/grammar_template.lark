@@ -273,7 +273,7 @@ EXP     : "exp"
 LOG     : "log" | "ln"
 LOG10   : "log10"
 SQRT    : /sqrt\b/
-SQUARE  : /sq(?!rt)\b/ | /sqr\b/ | /square\b/
+SQUARE  : /sq(?!rt)\b/ | /sqr(?!t)\b/ | /square\b/
 ABS     : "abs"
 FLOOR   : "floor"
 CEIL    : "ceil"

@@ -144,7 +144,7 @@ class BackendInterface(ABC):
     def count_atom_data(
         self,
         pdb_paths: list[str],
-        selections: list[str]
+        selections: list[dict[str, str]]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
         ...
 
@@ -168,17 +168,19 @@ class VMDBackend(BackendInterface):
             abs_path = os.path.abspath(pdb)
             tcl_lines.append(f'mol new "{abs_path}"')
             for sel in selections:
+                esc_for_comparison = _escape_tcl(sel['query'])
+                sel = sel['vmd_query'] if 'vmd_query' in sel else sel['query']
                 esc = _escape_tcl(sel)
                 tcl_lines.extend([
                     'try {',
                     f'  set selobj [atomselect top "{esc}"]',
-                    f'  puts "COUNT {base}{delimiter}{esc}{delimiter}[$selobj num]"',
-                    f'  puts -nonewline "INDICES {base}{delimiter}{esc}{delimiter}"',
+                    f'  puts "COUNT {base}{delimiter}{esc_for_comparison}{delimiter}[$selobj num]"',
+                    f'  puts -nonewline "INDICES {base}{delimiter}{esc_for_comparison}{delimiter}"',
                     '  puts [$selobj get index]',
                     '  $selobj delete',
                     '} on error {err opts} {',
-                    f'  puts "COUNT {base}{delimiter}{esc}{delimiter}nan"',
-                    f'  puts "INDICES {base}{delimiter}{esc}{delimiter}"',
+                    f'  puts "COUNT {base}{delimiter}{esc_for_comparison}{delimiter}nan"',
+                    f'  puts "INDICES {base}{delimiter}{esc_for_comparison}{delimiter}"',
                     f'  puts ""',
                     '}',
                 ])
@@ -206,6 +208,7 @@ class VMDBackend(BackendInterface):
         counts: dict[tuple[str,str], float] = {}
         indices: dict[tuple[str,str], list[int]] = {}
         for line in proc.stdout.splitlines():
+            print(line)
             if line.startswith('COUNT '):
                 _, rest = line.split('COUNT ', 1)
                 parts = rest.split(delimiter)
@@ -227,6 +230,7 @@ class VMDBackend(BackendInterface):
         result: dict[tuple[str,str], tuple[int, list[int]]] = {}
         for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
+                sel = sel['query']
                 key = (pdb, sel)
                 cnt = counts.get(key, np.nan)
                 idx_list = indices.get(key, [])
@@ -250,7 +254,7 @@ class ProDyBackend(BackendInterface):
         for pdb in pdb_paths:
             basename = os.path.basename(pdb)
             try:
-                structure = parsePDB(pdb)
+                structure = parsePDB(pdb, altloc='all')
                 try:
                     dssp_file = execDSSP(basename)
                     parseDSSP(dssp_file, structure)
@@ -258,7 +262,8 @@ class ProDyBackend(BackendInterface):
                     logger.warning(f"DSSP failed for {basename}: {e}")
 
                 for sel in selections:
-                    key = (basename, sel)
+                    key = (basename, sel['query'])
+                    sel = sel['prody_query'] if 'prody_query' in sel else sel['query']
                     try:
                         atoms = structure.select(sel)
                         if atoms is None:
@@ -275,12 +280,14 @@ class ProDyBackend(BackendInterface):
             except Exception as e:
                 logger.warning(f"ProDy parse failed for {basename}: {e}")
                 for sel in selections:
-                    key = (basename, sel)
+                    key = (basename, sel['query'])
+                    sel = sel['prody_query'] if 'prody_query' in sel else sel['query']
                     result_counts[key] = np.nan
                     result_indices[key] = []
 
         for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
+                sel = sel['query']
                 key = (pdb, sel)
                 result_counts.setdefault(key, np.nan)
                 result_indices.setdefault(key, [])
@@ -290,15 +297,31 @@ class ProDyBackend(BackendInterface):
 
 
 class MolSceneBackend(BackendInterface):
+    from molscene.Scene import Scene
     """
     Uses MolScene and molselect Evaluator to count atoms and retrieve their indices.
     """
+    def load_pdb_or_cif(self, path: str):
+        """
+        Load a PDB or CIF file into a Pandas DataFrame.
+        """
+        if path.endswith('.pdb'):
+            df = self.Scene.from_pdb(path)
+        elif path.endswith('.cif'):
+            df = self.Scene.from_cif(path)
+        else:
+            raise ValueError(f"Unsupported file format for {basename}")
+        df.add_mass()
+        if 'model' in df.columns:
+            df = df[df['model'] == 1]
+        return df
+        
+    
     def count_atom_data(
         self,
         pdb_paths: list[str],
         selections: list[str]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
-        from molscene.Scene import Scene
         from molselect.python.backends.pandas import PandasStructure
         from molselect.python.evaluator import Evaluator
 
@@ -309,16 +332,9 @@ class MolSceneBackend(BackendInterface):
         for pdb in pdb_paths:
             basename = os.path.basename(pdb)
             try:
-                if pdb.endswith('.pdb'):
-                    df = Scene.from_pdb(pdb)
-                elif pdb.endswith('.cif'):
-                    df = Scene.from_cif(pdb)
-                else:
-                    raise ValueError(f"Unsupported file format for {basename}")
-                if 'model' in df.columns:
-                    df = df[df['model'] == 1]
-
+                df = self.load_pdb_or_cif(pdb)
                 for sel in selections:
+                    sel = sel['query']
                     key = (basename, sel)
                     try:
                         sel_result = selector.parse(df, sel)
@@ -339,6 +355,7 @@ class MolSceneBackend(BackendInterface):
 
         for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
+                sel = sel['query']
                 key = (pdb, sel)
                 result_counts.setdefault(key, np.nan)
                 result_indices.setdefault(key, [])
@@ -361,7 +378,7 @@ def load_selection_tests():
     clean_lines = [line for line in lines if not line.lstrip().startswith("//")]
     clean_json = "".join(clean_lines)
     selection_tests = json.loads(clean_json)
-    selections = [test["query"] for test in selection_tests]
+    selections = [test for test in selection_tests]
     return selections
 
 
@@ -372,15 +389,20 @@ def load_pdb_files():
     pdb_files += glob.glob(os.path.join(base, '../../data/tests/*.cif'))
     return pdb_files
 
-PDB_FILES = load_pdb_files()[:2]
-SELECTIONS = load_selection_tests()[:10]
+PDB_FILES = load_pdb_files()
+SELECTIONS = load_selection_tests()
+
+PDB_FILES = PDB_FILES[:1]  # Limit to first 1 for testing
+SELECTIONS = SELECTIONS[:100]  # Limit to first 1 for testing
 
 # Instantiate backend objects
 molscene_backend = MolSceneBackend()
 prody_backend = ProDyBackend()
-vmd_backend = VMDBackend()
+vmd_backend = VMDBackend('temporary_script.tcl')
 
 
+
+# Fixtures for counts
 @pytest.fixture(scope="session")
 def molscene_counts():
     """Compute once per session."""
@@ -393,8 +415,20 @@ def prody_counts():
 
 @pytest.fixture(scope="session")
 def vmd_counts():
-    # pass tcl_script_path=None to auto-tempfile
     return {k: v[0] for k, v in vmd_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+
+# Fixtures for indices
+@pytest.fixture(scope="session")
+def molscene_indices():
+    return {k: v[1] for k, v in molscene_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+
+@pytest.fixture(scope="session")
+def prody_indices():
+    return {k: v[1] for k, v in prody_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+
+@pytest.fixture(scope="session")
+def vmd_indices():
+    return {k: v[1] for k, v in vmd_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
 
 def _sanitize(sel: str) -> str:
     # Turn your selection into a safe Python identifier
@@ -412,7 +446,7 @@ def _make_test_for(sel: str):
     def test_molscene_vs_prody_or_vmd(self, pdb_path,
                                       molscene_counts, prody_counts, vmd_counts):
         basename = os.path.basename(pdb_path)
-        key = (basename, sel)
+        key = (basename, sel['query'])
 
         mol = molscene_counts[key]
         pro = prody_counts[key]
@@ -437,50 +471,127 @@ def _make_test_for(sel: str):
     return test_molscene_vs_prody_or_vmd
 
 
-# Dynamically build one Test class per selection
-for sel in SELECTIONS:
-    safe = _sanitize(sel)
-    cls_name = f"Test_sel_{safe}"
-    # create an empty class
-    cls = type(cls_name, (object,), {})
-    # attach our generated test method
-    setattr(cls, "test_molscene", _make_test_for(sel))
-    # inject into module level so pytest will collect it
-    globals()[cls_name] = cls
+
 
 # For a single selection, return the indices with all the backends
 def _make_test_for_indices(sel: str):
     @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
     def test_indices_molscene_vs_prody_or_vmd(self, pdb_path,
+                                              molscene_indices, prody_indices, vmd_indices,
                                               molscene_counts, prody_counts, vmd_counts):
         basename = os.path.basename(pdb_path)
-        key = (basename, sel)
+        key = (basename, sel['query'])
 
-        mol = molscene_counts[key]
-        pro = prody_counts[key]
-        vmd = vmd_counts[key]
+        mol_idx = molscene_indices[key]
+        pro_idx = prody_indices[key]
+        vmd_idx = vmd_indices[key]
+
+        mol_count = molscene_counts[key]
+        pro_count = prody_counts[key]
+        vmd_count = vmd_counts[key]
 
         # if all fail → skip
-        if (pd.isna(pro) or np.isnan(pro)) and (pd.isna(vmd) or np.isnan(vmd)):
+        if (pd.isna(pro_count) or np.isnan(pro_count)) and (pd.isna(vmd_count) or np.isnan(vmd_count)):
             pytest.skip(f"Selection '{sel}' unsupported by all: molscene, ProDy, and VMD on {basename}")
 
-        assert not pd.isna(mol) and not np.isnan(mol), (
-            f"{basename} | sel={sel!r}: molscene={mol!r} "
-            f"!= prody={pro!r} and != vmd={vmd!r}"
+        # Only compare indices if molscene is not nan
+        assert not pd.isna(mol_count) and not np.isnan(mol_count), (
+            f"{basename} | sel={sel!r}: molscene={mol_count!r} "
+            f"!= prody={pro_count!r} and != vmd={vmd_count!r}"
         )
 
-    test_indices_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd for selection: {sel!r}"
+        # Compare indices if available, and provide detailed diff if they don't match
+        def diff_indices(ref, test):
+            ref_set = set(ref)
+            test_set = set(test)
+            missing = sorted(ref_set - test_set)
+            extra = sorted(test_set - ref_set)
+            return missing, extra
+
+        pro_ok = not (pd.isna(pro_count) or np.isnan(pro_count)) and mol_idx == pro_idx
+        vmd_ok = not (pd.isna(vmd_count) or np.isnan(vmd_count)) and mol_idx == vmd_idx
+
+        #if not (pro_ok or vmd_ok):
+        if not (pro_ok and vmd_ok):
+            scene = molscene_backend.load_pdb_or_cif(pdb_path)
+            msg = f"{basename} | sel={sel!r}:\n"
+            if not pro_ok:
+                msg += f"  molscene count={mol_count!r} != prody count={pro_count!r}\n"
+                if not (pd.isna(pro_count) or np.isnan(pro_count)):
+                    missing, extra = diff_indices(pro_idx, mol_idx)
+                    msg += (
+                        f"  vs prody: \n"
+                        # f"           molscene indices={mol_idx!r}\n"
+                        # f"           prody indices={pro_idx!r}\n"
+                        # f"           missing (in prody, not in molscene): {missing}\n"
+                        # f"           extra (in molscene, not in prody): {extra}\n"
+                    )
+
+                    missing_selection_df = scene.loc[missing]
+                    extra_selection_df = scene.loc[extra]
+                    # Add the DataFrame pretty representation to the message
+                    with pd.option_context("display.max_columns", None, "display.width", None):
+                        if not missing_selection_df.empty:
+                            msg += f"  Missing in ProDy selection:\n{missing_selection_df}\n"
+                        if not extra_selection_df.empty:
+                            msg += f"  Extra in MolScene selection:\n{extra_selection_df}\n"
+                
+                
+            if not vmd_ok:
+                msg += f"  molscene count={mol_count!r} != vmd count={vmd_count!r}\n"
+                if not (pd.isna(vmd_count) or np.isnan(vmd_count)):
+                    missing, extra = diff_indices(vmd_idx, mol_idx)
+                    msg += (
+                        f"  vs vmd:\n"
+                        # f"           molscene indices={mol_idx!r}\n"
+                        # f"           vmd indices={vmd_idx!r}\n"
+                        # f"           missing (in vmd, not in molscene): {missing}\n"
+                        # f"           extra (in molscene, not in vmd): {extra}\n"
+                    )
+                    if all([a in scene.index for a in extra]):
+                        extra_selection_df = scene.loc[extra]
+                    else:
+                        not_found = [a for a in extra if a not in scene.index]
+                        msg += f"  (some extra indices not found in MolScene DataFrame: {not_found})\n"
+                        extra_selection_df = pd.DataFrame()
+                    
+                    if all([a in scene.index for a in missing]):
+                        missing_selection_df = scene.loc[missing]
+                    else:
+                        not_found = [a for a in missing if a not in scene.index]
+                        msg += f"  (some missing indices not found in MolScene DataFrame: {not_found})\n"
+                        missing_selection_df = pd.DataFrame()
+                    
+                    # Add the DataFrame pretty representation to the message
+                    with pd.option_context("display.max_columns", None, "display.width", None):
+                        if not missing_selection_df.empty:
+                            msg += f"  Missing in VMD selection:\n{missing_selection_df}\n"
+                        if not extra_selection_df.empty:
+                            msg += f"  Extra in MolScene selection:\n{extra_selection_df}\n"
+            assert False, msg
+
+    test_indices_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd indices for selection: {sel!r}"
     return test_indices_molscene_vs_prody_or_vmd
 
-
+# Dynamically build one Test class per selection, with both count and index tests
+for i, sel in enumerate(SELECTIONS):
+    safe = _sanitize(sel['query'])
+    cls_name = f"Test_{i:03d}_{safe}"
+    # create an empty class
+    cls = type(cls_name, (object,), {})
+    # attach our generated test methods
+    setattr(cls, "test_molscene", _make_test_for(sel))
+    setattr(cls, "test_indices", _make_test_for_indices(sel))
+    # inject into module level so pytest will collect it
+    globals()[cls_name] = cls
 
 if __name__ == "__main__":
     import pandas as pd
     import os
 
     # Load files and selections
-    pdb_files = load_pdb_files()
-    selections = load_selection_tests()
+    pdb_files = load_pdb_files()[:1]
+    selections = load_selection_tests()[:10]
 
     # Instantiate backend objects
     molscene_backend = MolSceneBackend()
@@ -500,6 +611,7 @@ if __name__ == "__main__":
     for pdb in pdb_files:
         basename = os.path.basename(pdb)
         for sel in selections:
+            sel = sel['query']
             rows.append({
                 "pdb": basename,
                 "selection": sel,
