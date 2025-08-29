@@ -259,7 +259,6 @@ class Within(Node):
     def evaluate(self, s: Structure) -> Array:
         distance = self.distance.evaluate(s)
         mask = self.target_mask.evaluate(s)
-        dists = s.minimum_pairwise_distances(s.select(mask))
         if not mask.any():
             return s.array_filled(False)
         dists = s.minimum_pairwise_distances(s.select(mask))
