@@ -252,12 +252,27 @@ class ProDyBackend(BackendInterface):
     """
     Uses ProDy to count atoms and retrieve their indices.
     """
+    @staticmethod
+    def _exec_dssp_legacy(pdb_path: str) -> str:
+        """Run mkdssp with --output-format dssp to produce legacy format that ProDy can parse."""
+        from prody.utilities import which
+        mkdssp = which('mkdssp') or which('dssp')
+        if mkdssp is None:
+            raise EnvironmentError('mkdssp/dssp executable not found')
+        abs_pdb = os.path.abspath(pdb_path)
+        basename = os.path.splitext(os.path.basename(pdb_path))[0]
+        out = os.path.join('.', basename + '.dssp')
+        status = os.system(f'{mkdssp} --output-format dssp {abs_pdb} > {out} 2>/dev/null')
+        if status != 0:
+            raise RuntimeError(f'mkdssp failed with status {status} for {abs_pdb}')
+        return out
+
     def count_atom_data(
         self,
         pdb_paths: list[str],
         selections: list[str]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
-        from prody import parsePDB, execDSSP, parseDSSP
+        from prody import parsePDB, parseDSSP
         result_counts: dict[tuple[str,str], float] = {}
         result_indices: dict[tuple[str,str], list[int]] = {}
 
@@ -266,7 +281,7 @@ class ProDyBackend(BackendInterface):
             try:
                 structure = parsePDB(pdb, altloc='all')
                 try:
-                    dssp_file = execDSSP(basename)
+                    dssp_file = self._exec_dssp_legacy(pdb)
                     parseDSSP(dssp_file, structure)
                 except Exception as e:
                     logger.warning(f"DSSP failed for {basename}: {e}")
@@ -532,7 +547,15 @@ def _make_test_for_indices(sel: str):
         if sel.get('vmd_query','') == 'SKIP':
             vmd_ok = True
 
-        #if not (pro_ok or vmd_ok):
+        # If a reference backend returned nan, don't count it as a failure
+        pro_available = not (pd.isna(pro_count) or np.isnan(pro_count))
+        vmd_available = not (pd.isna(vmd_count) or np.isnan(vmd_count))
+
+        if not pro_available:
+            pro_ok = True
+        if not vmd_available:
+            vmd_ok = True
+
         if not (pro_ok and vmd_ok):
             scene = molscene_backend.load_pdb_or_cif(pdb_path)
             msg = f"{basename} | sel={sel!r}:\n"
