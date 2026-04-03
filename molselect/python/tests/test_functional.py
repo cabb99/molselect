@@ -322,8 +322,12 @@ class MolSceneBackend(BackendInterface):
         else:
             raise ValueError(f"Unsupported file format for {basename}")
         df = df.compute_mass()
-        df = df.compute_secondary_structure()
-        df['structure'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
+        try:
+            df = df.compute_secondary_structure()
+            df['structure'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
+        except Exception as e:
+            logger.warning(f"compute_secondary_structure failed for {path}: {e}")
+            df['structure'] = 'C'
         if 'model' in df.columns:
             df = df[df['model'] == 1]
         return df
@@ -361,7 +365,7 @@ class MolSceneBackend(BackendInterface):
             except Exception as e:
                 logger.warning(f"MolSceneBackend parse failed for {basename}: {e}")
                 for sel in selections:
-                    key = (basename, sel)
+                    key = (basename, sel['query'])
                     result_counts[key] = np.nan
                     result_indices[key] = []
 
