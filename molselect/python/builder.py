@@ -136,16 +136,19 @@ class ASTBuilder(Transformer):
             return All()
         if tok.type == 'NONE':
             return None_()
+        # Use tok.type (canonical name in uppercase) to resolve synonyms
+        canonical = tok.type.lower()
         # If it's a macro, expand it immediately
-        if hasattr(self.parser, 'macros_dict') and tok.value in self.parser.macros_dict:
-            return self._expand_macro_ast(str(tok.value))
+        if hasattr(self.parser, 'macros_dict') and canonical in self.parser.macros_dict:
+            return self._expand_macro_ast(canonical)
         # Otherwise, treat as a column/flag
-        return SelectionKeyword(str(tok.value))
+        return SelectionKeyword(canonical)
 
     def selection_keyword(self, token):
         if isinstance(token, Tree):
             return self._to_node(token)
-        return SelectionKeyword(str(token))
+        # Use token.type (canonical name in uppercase) to resolve synonyms
+        return SelectionKeyword(token.type.lower())
 
     def var_sel(self, tok):
         return SelectionKeyword(str(tok))

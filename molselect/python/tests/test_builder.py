@@ -20,10 +20,11 @@ def test_const_builder():
     assert node.name == 'pi'
 
 def test_selection_keyword_builder():
-    tok = Token('NAME', 'mass')
+    # Token type is the canonical keyword name (uppercase), value is the synonym used
+    tok = Token('RESID', 'resnum')
     node = ASTBuilder().selection_keyword(tok)
     assert isinstance(node, SelectionKeyword)
-    assert node.name == 'mass'
+    assert node.name == 'resid'  # canonical name from token type, not synonym value
 
 def test_and_builder():
     left = SelectionKeyword('a')

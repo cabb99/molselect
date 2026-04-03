@@ -142,6 +142,7 @@ class Comparison(Node):
 
         ops = {
             '==': lambda l, r: l == r,
+            '=':  lambda l, r: l == r,
             '!=': lambda l, r: l != r,
             '<':  lambda l, r: l < r,
             '>':  lambda l, r: l > r,
@@ -214,7 +215,14 @@ class PropertySelection(Node):
         for v in self.values:
             if isinstance(v, StringValue):
                 value = v.evaluate(s)
-                mask |= (col == value)
+                if value == '_':
+                    # Wildcard: match empty strings and NaN/missing values
+                    empty_mask = (col == '')
+                    if hasattr(col, 'isna'):
+                        empty_mask |= col.isna()
+                    mask |= empty_mask
+                else:
+                    mask |= (col == value)
             elif isinstance(v, QuotedStringValue):
                 value = v.evaluate(s)
                 mask |= (col == value)
