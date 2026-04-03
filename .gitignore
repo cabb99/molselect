@@ -102,6 +102,9 @@ ENV/
 # VS Code
 .vscode/
 
+# Backup folder for old temp/debug files
+_backup/
+
 # MolSelect — generated/temp files
 parser_grammar.lark
 temp_temp_grammar.lark
