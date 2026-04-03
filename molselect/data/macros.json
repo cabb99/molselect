@@ -142,19 +142,19 @@
       }
     },
     "Polarity": {
-      "polar": {
-        "name": "polar",
-        "synonyms": [],
-        "short": "polar residues",
-        "description": "Polar protein residues (not hydrophobic).",
-        "definition": "protein and not hydrophobic"
+    "polar": {
+      "name": "polar",
+      "synonyms": [],
+      "short": "polar residues",
+      "description": "Polar amino acids: `ARG <https://www.rcsb.org/ligand/ARG>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, `ASP <https://www.rcsb.org/ligand/ASP>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `SER <https://www.rcsb.org/ligand/SER>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `ASX <https://www.rcsb.org/ligand/ASX>`_, `GLX <https://www.rcsb.org/ligand/GLX>`_, `ASH <https://www.rcsb.org/ligand/ASH>`_, `GLH <https://www.rcsb.org/ligand/GLH>`_, `CSO <https://www.rcsb.org/ligand/CSO>`_, `CYX <https://www.rcsb.org/ligand/CYX>`_, `HIP <https://www.rcsb.org/ligand/HIP>`_, `HID <https://www.rcsb.org/ligand/HID>`_, `HIE <https://www.rcsb.org/ligand/HIE>`_, `HSD <https://www.rcsb.org/ligand/HSD>`_, `HSE <https://www.rcsb.org/ligand/HSE>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_, `HISD <https://www.rcsb.org/ligand/HISD>`_, `HISE <https://www.rcsb.org/ligand/HISE>`_, `HISP <https://www.rcsb.org/ligand/HISP>`_, `LYN <https://www.rcsb.org/ligand/LYN>`_, `TYM <https://www.rcsb.org/ligand/TYM>`_, `ARN <https://www.rcsb.org/ligand/ARN>`_, `SEC <https://www.rcsb.org/ligand/SEC>`_, `SEP <https://www.rcsb.org/ligand/SEP>`_, `TPO <https://www.rcsb.org/ligand/TPO>`_, `PTR <https://www.rcsb.org/ligand/PTR>`_, `PHD <https://www.rcsb.org/ligand/PHD>`_.",
+      "definition": "resname ARG ASN ASP CYS GLN GLU GLY HIS LYS SER THR TYR ASX GLX ASH GLH CSO CYX HIP HID HIE HSD HSE HSP HISD HISE HISP LYN TYM ARN SEC SEP TPO PTR PHD"
       },
       "hydrophobic": {
         "name": "hydrophobic",
         "synonyms": [],
         "short": "hydrophobic residues",
-        "description": "Hydrophobic amino acids: `ALA <https://www.rcsb.org/ligand/ALA>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_.",
-        "definition": "resname ALA LEU VAL ILE PRO PHE MET TRP"
+        "description": "Hydrophobic amino acids: `ALA <https://www.rcsb.org/ligand/ALA>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `XLE <https://www.rcsb.org/ligand/XLE>`_.",
+        "definition": "resname ALA LEU VAL ILE PRO PHE MET TRP XLE"
       }
     },
     "Charge": {
@@ -169,22 +169,22 @@
         "name": "acidic",
         "synonyms": [],
         "short": "acidic residues",
-        "description": "Acidic amino acids: `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_.",
-        "definition": "resname ASP GLU"
+        "description": "Acidic residues: `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `ASH <https://www.rcsb.org/ligand/ASH>`_, `GLH <https://www.rcsb.org/ligand/GLH>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_, `HISP <https://www.rcsb.org/ligand/HISP>`_, `SEP <https://www.rcsb.org/ligand/SEP>`_, `TPO <https://www.rcsb.org/ligand/TPO>`_, `PTR <https://www.rcsb.org/ligand/PTR>`_, `PHD <https://www.rcsb.org/ligand/PHD>`_.",
+        "definition": "resname ASP GLU ASH GLH HSP HISP SEP TPO PTR PHD"
       },
       "basic": {
         "name": "basic",
         "synonyms": [],
         "short": "basic residues",
-        "description": "Basic amino acids: `ARG <https://www.rcsb.org/ligand/ARG>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_.",
-        "definition": "resname ARG HIS LYS HSP"
+        "description": "Basic residues: `ARG <https://www.rcsb.org/ligand/ARG>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `LYS <https://www.rcsb.org/ligand/LYS>`_, `HIP <https://www.rcsb.org/ligand/HIP>`_, `HID <https://www.rcsb.org/ligand/HID>`_, `HIE <https://www.rcsb.org/ligand/HIE>`_, `HSD <https://www.rcsb.org/ligand/HSD>`_, `HSE <https://www.rcsb.org/ligand/HSE>`_, `HISD <https://www.rcsb.org/ligand/HISD>`_, `HISE <https://www.rcsb.org/ligand/HISE>`_, `TYM <https://www.rcsb.org/ligand/TYM>`_.",
+        "definition": "resname ARG HIS LYS HIP HID HIE HSD HSE HISD HISE TYM"
       },
       "neutral": {
         "name": "neutral",
         "synonyms": [],
         "short": "neutral residues",
-        "description": "Neutral residues: `VAL <https://www.rcsb.org/ligand/VAL>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `HIS <https://www.rcsb.org/ligand/HIS>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `ASX <https://www.rcsb.org/ligand/ASX>`_, `GLX <https://www.rcsb.org/ligand/GLX>`_, `PCA <https://www.rcsb.org/ligand/PCA>`_, `HYP <https://www.rcsb.org/ligand/HYP>`_.",
-        "definition": "resname VAL PHE GLN TYR HIS CYS MET TRP ASX GLX PCA HYP"
+        "description": "Neutral residues: `ALA <https://www.rcsb.org/ligand/ALA>`_, `ASN <https://www.rcsb.org/ligand/ASN>`_, `CYS <https://www.rcsb.org/ligand/CYS>`_, `GLN <https://www.rcsb.org/ligand/GLN>`_, `GLY <https://www.rcsb.org/ligand/GLY>`_, `ILE <https://www.rcsb.org/ligand/ILE>`_, `LEU <https://www.rcsb.org/ligand/LEU>`_, `MET <https://www.rcsb.org/ligand/MET>`_, `PHE <https://www.rcsb.org/ligand/PHE>`_, `PRO <https://www.rcsb.org/ligand/PRO>`_, `SER <https://www.rcsb.org/ligand/SER>`_, `THR <https://www.rcsb.org/ligand/THR>`_, `TRP <https://www.rcsb.org/ligand/TRP>`_, `TYR <https://www.rcsb.org/ligand/TYR>`_, `VAL <https://www.rcsb.org/ligand/VAL>`_, `CSO <https://www.rcsb.org/ligand/CSO>`_, `CYX <https://www.rcsb.org/ligand/CYX>`_, `LYN <https://www.rcsb.org/ligand/LYN>`_, `ARN <https://www.rcsb.org/ligand/ARN>`_, `MSE <https://www.rcsb.org/ligand/MSE>`_, `CME <https://www.rcsb.org/ligand/CME>`_, `SEC <https://www.rcsb.org/ligand/SEC>`_.",
+        "definition": "resname ALA ASN CYS GLN GLY ILE LEU MET PHE PRO SER THR TRP TYR VAL CSO CYX LYN ARN MSE CME SEC"
       }
     },
     "Cyclic": {
