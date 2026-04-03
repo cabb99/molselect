@@ -339,10 +339,10 @@ class MolSceneBackend(BackendInterface):
         df = df.compute_mass()
         try:
             df = df.compute_secondary_structure()
-            df['structure'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
+            df['secondary'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
         except Exception as e:
             logger.warning(f"compute_secondary_structure failed for {path}: {e}")
-            df['structure'] = 'C'
+            df['secondary'] = 'C'
         if 'model' in df.columns:
             df = df[df['model'] == 1]
         return df
