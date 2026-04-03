@@ -262,13 +262,13 @@ selection_keyword: select_variable | <<KEYWORDS_NAMES>>
 // MATH KEYWORDS
 // ----------------------------
 
-// Math function names (as terminals, so they're easy to recognize)
+// Math function names (the terminal name corresponds to the numpy function name)
 SIN     : "sin"
 COS     : "cos"
 TAN     : "tan"
-ASIN    : "asin" | "arcsin"
-ACOS    : "acos" | "arccos"
-ATAN    : "atan" | "arctan"
+ARCSIN    : "asin" | "arcsin"
+ARCCOS    : "acos" | "arccos"
+ARCTAN    : "atan" | "arctan"
 EXP     : "exp"
 LOG     : "log" | "ln"
 LOG10   : "log10"
@@ -281,7 +281,7 @@ COSH    : "cosh"
 SINH    : "sinh"
 TANH    : "tanh"
 
-?function_name: SIN | COS | TAN | ASIN | ACOS | ATAN | EXP | LOG | LOG10 | SQRT | SQUARE | ABS | CEIL | FLOOR | SINH | COSH | TANH
+?function_name: SIN | COS | TAN | ARCSIN | ARCCOS | ARCTAN | EXP | LOG | LOG10 | SQRT | SQUARE | ABS | CEIL | FLOOR | SINH | COSH | TANH
 
 // --------------------------
 // Constants
