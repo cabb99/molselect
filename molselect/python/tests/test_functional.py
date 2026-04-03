@@ -207,35 +207,45 @@ class VMDBackend(BackendInterface):
 
         counts: dict[tuple[str,str], float] = {}
         indices: dict[tuple[str,str], list[int]] = {}
-        for line in proc.stdout.splitlines():
-            print(line)
-            if line.startswith('COUNT '):
-                _, rest = line.split('COUNT ', 1)
-                parts = rest.split(delimiter)
-                if len(parts) == 3:
-                    pdbfile, sel, num = parts
-                    try:
-                        cnt = int(num)
-                    except ValueError:
-                        cnt = np.nan
-                    counts[(pdbfile, sel)] = cnt
-            elif line.startswith('INDICES '):
-                _, rest = line.split('INDICES ', 1)
-                parts = rest.split(delimiter)
-                if len(parts) == 3:
-                    pdbfile, sel, idx_str = parts
-                    idx_list = [int(i) for i in idx_str.strip().split() if i.isdigit()]
-                    indices[(pdbfile, sel)] = idx_list
+        with open("vmd_output.txt", "w+") as f:
+            for line in proc.stdout.splitlines():
+                # Write the stdout to a file
+                f.write(line + "\n")
+                if line.startswith('COUNT '):
+                    _, rest = line.split('COUNT ', 1)
+                    parts = rest.split(delimiter)
+                    if len(parts) == 3:
+                        pdbfile, sel, num = parts
+                        try:
+                            cnt = int(num)
+                        except ValueError:
+                            cnt = np.nan
+                        if (pdbfile, sel) in counts:
+                            f.write(f'REPEATED COUNTKEY: {(pdbfile, sel)}\n')
+                        counts[(pdbfile, sel)] = cnt
+                        
+                elif line.startswith('INDICES '):
+                    _, rest = line.split('INDICES ', 1)
+                    parts = rest.split(delimiter)
+                    if len(parts) == 3:
+                        pdbfile, sel, idx_str = parts
+                        idx_list = [int(i) for i in idx_str.strip().split() if i.isdigit()]
+                        if (pdbfile, sel) in indices:
+                            f.write(f'REPEATED INDICES KEY: {(pdbfile, sel)}\n')
+                        indices[(pdbfile, sel)] = idx_list
 
-        result: dict[tuple[str,str], tuple[int, list[int]]] = {}
-        for pdb in [os.path.basename(p) for p in pdb_paths]:
-            for sel in selections:
-                sel = sel['query']
-                key = (pdb, sel)
-                cnt = counts.get(key, np.nan)
-                idx_list = indices.get(key, [])
-                result[key] = (cnt, idx_list)
-        return result
+        
+
+            result: dict[tuple[str,str], tuple[int, list[int]]] = {}
+            for pdb in [os.path.basename(p) for p in pdb_paths]:
+                for sel in selections:
+                    sel = sel['query']
+                    key = (pdb, sel)
+                    cnt = counts.get(key, np.nan)
+                    idx_list = indices.get(key, [])
+                    result[key] = (cnt, idx_list)
+                    f.write(f'RESULT KEY: {key} -> count={cnt}, indices={idx_list}\n')
+            return result
 
 
 class ProDyBackend(BackendInterface):
@@ -311,7 +321,9 @@ class MolSceneBackend(BackendInterface):
             df = self.Scene.from_cif(path)
         else:
             raise ValueError(f"Unsupported file format for {basename}")
-        df.add_mass()
+        df = df.compute_mass()
+        df = df.compute_secondary_structure()
+        df['structure'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
         if 'model' in df.columns:
             df = df[df['model'] == 1]
         return df
@@ -393,7 +405,7 @@ PDB_FILES = load_pdb_files()
 SELECTIONS = load_selection_tests()
 
 PDB_FILES = PDB_FILES[:1]  # Limit to first 1 for testing
-SELECTIONS = SELECTIONS[:100]  # Limit to first 1 for testing
+SELECTIONS = SELECTIONS[:200]
 
 # Instantiate backend objects
 molscene_backend = MolSceneBackend()
@@ -511,6 +523,11 @@ def _make_test_for_indices(sel: str):
         pro_ok = not (pd.isna(pro_count) or np.isnan(pro_count)) and mol_idx == pro_idx
         vmd_ok = not (pd.isna(vmd_count) or np.isnan(vmd_count)) and mol_idx == vmd_idx
 
+        if sel.get('prody_query','') == 'SKIP':
+            pro_ok = True
+        if sel.get('vmd_query','') == 'SKIP':
+            vmd_ok = True
+
         #if not (pro_ok or vmd_ok):
         if not (pro_ok and vmd_ok):
             scene = molscene_backend.load_pdb_or_cif(pdb_path)
@@ -590,8 +607,8 @@ if __name__ == "__main__":
     import os
 
     # Load files and selections
-    pdb_files = load_pdb_files()[:1]
-    selections = load_selection_tests()[:10]
+    pdb_files = PDB_FILES
+    selections = SELECTIONS
 
     # Instantiate backend objects
     molscene_backend = MolSceneBackend()

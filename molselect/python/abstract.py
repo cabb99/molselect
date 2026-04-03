@@ -50,7 +50,8 @@ class Start(Node):
     expr: Node
     def evaluate(self, s: Structure) -> Structure:
         """Evaluate the main expression and return a boolean mask."""
-        return s.select(self.expr.evaluate(s))
+        selection = self.expr.evaluate(s)
+        return s.select(selection)
 
 @dataclass
 class And(LogicNode):
