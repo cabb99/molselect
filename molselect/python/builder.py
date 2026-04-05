@@ -114,6 +114,8 @@ class ASTBuilder(Transformer):
         return Pow(self._to_node(left), self._to_node(right))
     def neg(self, value):
         return Neg(self._to_node(value))
+    def pos(self, value):
+        return self._to_node(value)
 
     def within_selection(self, within_token, dist, target_mask):
         mode = str(within_token).lower()

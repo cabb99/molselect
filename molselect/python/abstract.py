@@ -254,7 +254,7 @@ class Regex(Node):
         # Fallback: elementwise regex
         import re
         regex = re.compile(pattern)
-        found = s.array_values([bool(regex.fullmatch(str(x))) for x in col.data])
+        found = s.array_values([bool(regex.fullmatch(str(x))) for x in col])
         return found
 
 
