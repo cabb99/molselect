@@ -121,6 +121,9 @@ vmd_output.txt
 temporary_script.tcl
 _atom_counts_all_backends.csv
 atom_counts_all_backends.csv
+_backend_analysis.csv
+_backend_analysis.txt
+_backend_pdb_info.json
 
 # MolSelect — scratch scripts
 prody_molscene_shortcut.py

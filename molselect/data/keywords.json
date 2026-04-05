@@ -23,16 +23,36 @@
         }
       },
       "resid": {
-        "synonyms": ["label_seq_id", "resseq", "resnum"],
+        "synonyms": ["resseq", "resnum"],
         "type": "int",
-        "short": "Residue sequence number (file-based).",
+        "short": "Residue sequence number (author numbering).",
         "description": [
-          "Residue sequence number (file-based). Numeric value assigned to residues, often increasing along the chain."
+          "Residue sequence number using author-defined numbering. For PDB files, this is the",
+          "residue sequence number from the ATOM record columns 23-26. For CIF files, this",
+          "corresponds to auth_seq_id (the author's original numbering, which may contain gaps).",
+          "This follows the ProDy convention, where resid/resnum always refers to the author's",
+          "numbering. To access the CIF-internal sequential numbering (label_seq_id, which",
+          "restarts at 1 for each entity), use the 'label_seq_id' keyword instead.",
+          "See also: label_seq_id, auth_seq_id, residue."
         ],
         "example": "1",
         "regex_substitution": {
           "resid": "/resid(?!ue)\\b/"
         }
+      },
+      "label_seq_id": {
+        "synonyms": [],
+        "type": "int",
+        "short": "CIF label sequence ID (sequential, per-entity, 1-based).",
+        "description": [
+          "CIF-internal residue sequence number (label_seq_id). 1-based, restarts at 1 for",
+          "each entity/chain. Only available for CIF-format structures; PDB files do not have",
+          "this field. Note: this was previously a synonym of resid but was separated because",
+          "label_seq_id and auth_seq_id can differ significantly (e.g. in multi-chain CIF files",
+          "where label_seq_id restarts per chain but auth_seq_id is globally unique).",
+          "See also: resid, auth_seq_id, residue."
+        ],
+        "example": "1"
       },
       "chain": {
         "synonyms": ["chid", "label_asym_id", "chainid"],
@@ -418,9 +438,13 @@
       "auth_seq_id": {
         "synonyms": [],
         "type": "int",
-        "short": "Author-defined residue sequence number.",
+        "short": "Author-defined residue sequence number (CIF only).",
         "description": [
-          "Author-defined residue sequence number (as published)."
+          "Author-defined residue sequence number as published in the CIF file. For CIF",
+          "structures, this is identical to what resid returns (since resid uses author",
+          "numbering). For PDB files, this column is not present (resid already contains",
+          "the author numbering directly). Provided for explicit CIF field access.",
+          "See also: resid, label_seq_id."
         ],
         "example": "1"
       },

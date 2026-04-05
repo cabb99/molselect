@@ -216,8 +216,8 @@ class PropertySelection(Node):
             if isinstance(v, StringValue):
                 value = v.evaluate(s)
                 if value == '_':
-                    # Wildcard: match empty strings and NaN/missing values
-                    empty_mask = (col == '')
+                    # ProDy convention: _ matches empty string, space, and NaN/missing.
+                    empty_mask = (col == '') | (col == ' ')
                     if hasattr(col, 'isna'):
                         empty_mask |= col.isna()
                     mask |= empty_mask
