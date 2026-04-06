@@ -225,7 +225,7 @@
     },
     "Optional Data": {
       "segment": {
-        "synonyms": ["segname", "label_entity_id"],
+        "synonyms": ["segname"],
         "type": "str",
         "short": "Segment name.",
         "description": [
@@ -445,6 +445,19 @@
           "numbering). For PDB files, this column is not present (resid already contains",
           "the author numbering directly). Provided for explicit CIF field access.",
           "See also: resid, label_seq_id."
+        ],
+        "example": "1"
+      },
+      "label_entity_id": {
+        "synonyms": [],
+        "type": "str",
+        "short": "CIF entity identifier.",
+        "description": [
+          "CIF entity identifier (label_entity_id). Groups chains that share the same",
+          "sequence or chemical identity into a single entity. Multiple chains can share",
+          "one entity ID. Only available for CIF-format structures. Note: this is NOT",
+          "equivalent to segment/segname (which is a CHARMM/NAMD concept from PDB cols 72-76).",
+          "See also: chain, segment."
         ],
         "example": "1"
       },
