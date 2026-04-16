@@ -1,0 +1,51 @@
+{
+    "_comment": "Residue name to 1-letter code mappings for sequence selection. Keys are 3-letter (protein, DNA) or 1-letter (RNA) residue names. Values are 1-letter sequence codes. Unknown residues map to 'X' at evaluation time.",
+    "protein": {
+        "ALA": "A",
+        "CYS": "C",
+        "ASP": "D",
+        "GLU": "E",
+        "PHE": "F",
+        "GLY": "G",
+        "HIS": "H",
+        "ILE": "I",
+        "LYS": "K",
+        "LEU": "L",
+        "MET": "M",
+        "ASN": "N",
+        "PRO": "P",
+        "GLN": "Q",
+        "ARG": "R",
+        "SER": "S",
+        "THR": "T",
+        "VAL": "V",
+        "TRP": "W",
+        "TYR": "Y",
+        "ASX": "B",
+        "GLX": "Z",
+        "SEC": "U",
+        "PYL": "O",
+        "XLE": "J",
+        "UNK": "X",
+        "HSD": "H",
+        "HSE": "H",
+        "HSP": "H",
+        "HIE": "H",
+        "HID": "H",
+        "HIP": "H",
+        "CYX": "C",
+        "MSE": "M"
+    },
+    "DNA": {
+        "DA": "A",
+        "DC": "C",
+        "DG": "G",
+        "DT": "T"
+    },
+    "RNA": {
+        "A": "A",
+        "C": "C",
+        "G": "G",
+        "U": "U"
+    }
+}

@@ -63,7 +63,9 @@ where = ["."]
 # Ref https://setuptools.pypa.io/en/latest/userguide/datafiles.html#package-data
 [tool.setuptools.package-data]
 molselect = [
-    "py.typed"
+    "py.typed",
+    "data/*.json",
+    "data/*.lark"
 ]
 
 [tool.versioningit]

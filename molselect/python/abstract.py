@@ -1,9 +1,26 @@
+import json
 import math
+import os
+import re
 import numpy as np
 from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
 from typing_extensions import Protocol, runtime_checkable
 from molselect.python.protocols import Array, Structure, Mask
+
+import logging
+logger = logging.getLogger(__name__)
+
+# Load residue-name → 1-letter-code mappings from data file
+_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+with open(os.path.join(_data_dir, 'sequence_mappings.json')) as _f:
+    _seq_maps = json.load(_f)
+
+# Build a combined mapping: protein > DNA > RNA (no priority conflict for selection — all matches returned)
+SEQUENCE_MAP = {}
+SEQUENCE_MAP.update(_seq_maps['RNA'])
+SEQUENCE_MAP.update(_seq_maps['DNA'])
+SEQUENCE_MAP.update(_seq_maps['protein'])
 
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
@@ -306,16 +323,102 @@ class Bonded(Node):
         raise NotImplementedError("Bonded selection not implemented.")
 
 @dataclass
-class SequenceSelectionRegex(Node):
-    pattern: str
-    def evaluate(self, s):
-        raise NotImplementedError("Sequence selection regex not implemented.")
-
-@dataclass
 class SequenceSelection(Node):
-    sequence: str
-    def evaluate(self, s):
-        raise NotImplementedError("Sequence selection not implemented.")
+    """Select atoms by matching a 1-letter sequence pattern against residue names.
+
+    The query node is a StringValue (literal match), QuotedStringValue (literal),
+    or RegexValue (regex match). Literal strings are treated as exact substrings;
+    quoted and regex strings are compiled as regex patterns.
+
+    The selection is chain-aware: sequences are built and matched per-chain independently.
+    All residues matching anywhere in any chain are selected.
+    """
+    query: Node  # StringValue, QuotedStringValue, or RegexValue
+    short_circuit = False  # Needs full structure to build sequence
+
+    def evaluate(self, s: Structure) -> Any:
+        # 1. Determine the pattern string and whether it's regex
+        if isinstance(self.query, RegexValue):
+            pattern_str = self.query.value
+            is_regex = True
+        elif isinstance(self.query, QuotedStringValue):
+            pattern_str = self.query.value[1:-1]  # strip quotes
+            is_regex = True  # quoted = regex in ProDy convention
+        elif isinstance(self.query, StringValue):
+            pattern_str = self.query.value
+            is_regex = False  # plain string = literal substring
+        else:
+            # Fallback: treat as literal string
+            pattern_str = str(self.query.evaluate(s)) if isinstance(self.query, Node) else str(self.query)
+            is_regex = False
+
+        # 2. Compile the regex pattern
+        if is_regex:
+            regex = re.compile(pattern_str)
+        else:
+            regex = re.compile(re.escape(pattern_str))
+
+        # 3. Get residue names and residue indices from the structure
+        resname_arr = s.get_property('resname')
+        residue_arr = s.get_property('residue')
+
+        # Also get chain if available, for chain-aware matching
+        has_chain = 'chain' in s.columns
+        if has_chain:
+            chain_arr = s.get_property('chain')
+
+        # 4. Build per-chain sequences and collect matching residue indices
+        #    We iterate atoms in order, grouping by (chain, residue) to preserve order.
+        matched_residues = set()
+
+        # Build ordered list of (chain, residue_index, resname) — one per unique residue
+        seen = set()
+        residue_info = []  # list of (chain, residue_idx, 1-letter code)
+
+        for i in range(s.len()):
+            chain_val = str(chain_arr[i]) if has_chain else ''
+            res_idx = residue_arr[i]
+
+            # Handle potential NaN or missing residue index
+            try:
+                res_key = (chain_val, int(res_idx))
+            except (ValueError, TypeError):
+                continue
+
+            if res_key not in seen:
+                seen.add(res_key)
+                rn = str(resname_arr[i]).strip()
+                code = SEQUENCE_MAP.get(rn)
+                if code is None:
+                    # Unknown residue (water, ions, ligands) — skip, not part of sequence
+                    continue
+                residue_info.append((chain_val, int(res_idx), code))
+
+        # 5. Group by chain, build sequence per chain, match
+        # Collect chains in order of appearance
+        chain_order = []
+        chain_residues = {}  # chain -> list of (residue_idx, 1-letter code)
+        for chain_val, res_idx, code in residue_info:
+            if chain_val not in chain_residues:
+                chain_order.append(chain_val)
+                chain_residues[chain_val] = []
+            chain_residues[chain_val].append((res_idx, code))
+
+        for chain_val in chain_order:
+            residues = chain_residues[chain_val]
+            seq_str = ''.join(code for _, code in residues)
+            res_indices = [idx for idx, _ in residues]
+
+            # Find all matches in this chain's sequence
+            for m in regex.finditer(seq_str):
+                start, end = m.start(), m.end()
+                matched_residues.update(res_indices[start:end])
+
+        # 6. Build the result mask: all atoms whose residue index is in matched set
+        if not matched_residues:
+            return s.array_filled(False)
+
+        return residue_arr.isin(list(matched_residues))
 
 # Mathematical Operations
 @dataclass

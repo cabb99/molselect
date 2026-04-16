@@ -158,11 +158,8 @@ class ASTBuilder(Transformer):
     def macro_sel(self, tok):
         return self._expand_macro_ast(str(tok).lstrip('@'))
 
-    def sequence_selection_regex(self, pattern):
-        return SequenceSelectionRegex(str(pattern))
-
     def sequence_selection(self, sequence):
-        return SequenceSelection(str(sequence))
+        return SequenceSelection(sequence)
 
     def start(self, expr):
         return Start(self._to_node(expr))

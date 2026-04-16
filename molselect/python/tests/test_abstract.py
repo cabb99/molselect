@@ -256,11 +256,76 @@ def test_macro_start(structure):
     start = abstract.Start(expr=abstract.All())
     assert start.evaluate(s).len() == s.len()
 
+@pytest.fixture(params=["pure", "pandas"])
+def sequence_structure(request):
+    """Structure with resname, residue, chain columns for sequence tests.
+
+    Layout:
+      Chain A: residue 0=ALA(A), 1=CYS(C), 2=ASP(D)  -> sequence "ACD"
+      Chain B: residue 3=DA(A),  4=DT(T)               -> sequence "AT"
+      Plus 1 water (HOH) atom with residue 5 -> skipped in sequence
+    Each residue has 2 atoms.
+    """
+    df = {
+        'resname': ['ALA', 'ALA', 'CYS', 'CYS', 'ASP', 'ASP', 'DA', 'DA', 'DT', 'DT', 'HOH', 'HOH'],
+        'residue': [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+        'chain':   ['A', 'A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B', 'B'],
+        'name':    ['CA', 'CB'] * 6,
+        'x': [0.0] * 12, 'y': [0.0] * 12, 'z': [0.0] * 12,
+    }
+    if request.param == "pure":
+        return PureStructure(df, index=list(range(12)))
+    else:
+        return PandasStructure(pd.DataFrame(df))
+
+
+def test_sequence_selection(sequence_structure):
+    s = sequence_structure
+
+    # Literal match: "A" matches ALA in chain A (res 0, 2 atoms) AND DA in chain B (res 3, 2 atoms)
+    node = abstract.SequenceSelection(abstract.StringValue('A'))
+    result = node.evaluate(s)
+    assert result.any()
+    selected = s.select(result)
+    assert selected.len() == 4  # res 0 (2 atoms) + res 3 (2 atoms)
+
+    # Literal match: "ACD" matches full chain A -> 6 atoms
+    node = abstract.SequenceSelection(abstract.StringValue('ACD'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6
+
+    # Literal match: "AT" matches chain B DNA -> 4 atoms (DA + DT, excludes HOH)
+    node = abstract.SequenceSelection(abstract.StringValue('AT'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 4
+
+    # Literal match: no match -> empty
+    node = abstract.SequenceSelection(abstract.StringValue('XYZ'))
+    result = node.evaluate(s)
+    assert not result.any()
+
+    # Regex: "." matches every mapped residue (5 residues, 10 atoms; HOH skipped)
+    node = abstract.SequenceSelection(abstract.QuotedStringValue('"."'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 10
+
+    # Regex: "A.D" matches ACD in chain A -> 6 atoms
+    node = abstract.SequenceSelection(abstract.QuotedStringValue('"A.D"'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6
+
+    # Chain-aware: "DA" should NOT match across chain boundary (D in A + A in B)
+    node = abstract.SequenceSelection(abstract.StringValue('DA'))
+    result = node.evaluate(s)
+    assert not result.any()  # "DA" is not a substring of "ACD" or "AT"
+
+    # RegexValue: "[AC]" matches A and C in chain A + A in chain B
+    node = abstract.SequenceSelection(abstract.RegexValue('[AC]'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6  # res 0(A) + res 1(C) in chain A + res 3(A) in chain B
+
+
 def test_notimplemented_nodes(structure):
     s = structure
     with pytest.raises(NotImplementedError):
         abstract.Bonded(distance=1.0, selection=abstract.All()).evaluate(s)
-    with pytest.raises(NotImplementedError):
-        abstract.SequenceSelectionRegex(pattern='A').evaluate(s)
-    with pytest.raises(NotImplementedError):
-        abstract.SequenceSelection(sequence='A').evaluate(s)
