@@ -297,14 +297,34 @@
       }
     },
     "Backbone": {
+      "protein_backbone": {
+        "name": "protein_backbone",
+        "synonyms": [],
+        "short": "protein backbone atoms",
+        "description": [
+          "Backbone atoms of protein residues: C, CA, N, O"
+        ],
+        "definition": "protein and name C CA N O"
+      },
+      "nucleic_backbone": {
+        "name": "nucleic_backbone",
+        "synonyms": [],
+        "short": "nucleic acid backbone atoms",
+        "description": [
+          "Backbone atoms of nucleic acid residues: P, OP1, OP2, and sugar atoms from 3' to 5'"
+        ],
+        "definition": "nucleic and name P OP1 OP2 \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" 'C3*' 'C4*' 'C5*' 'O3*' 'O5*'"
+      },
       "backbone": {
         "name": "backbone",
         "synonyms": ["bb"],
         "description": [
-          "Residues defined for the 'backbone' flag in ProDy",
-          "Residues: C, CA, N, O"
+          "All backbone atoms",
+          "Includes: protein backbone and nucleic acid backbone",
+          "Protein backbone: C, CA, N, O",
+          "Nucleic acid backbone: P, OP1, OP2, and sugar atoms from 3' to 5'"
         ],
-        "definition": "(protein and name C CA N O) or (nucleic and name P OP1 OP2 \"C3'\" \"C4'\" \"C5'\" \"O3'\" \"O5'\" 'C3*' 'C4*' 'C5*' 'O3*' 'O5*')"
+        "definition": "protein_backbone or nucleic_backbone"
       },
       "backbonefull": {
         "name": "backbonefull",
