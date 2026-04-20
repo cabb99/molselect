@@ -317,7 +317,7 @@
       },
       "calpha": {
         "name": "calpha",
-        "synonyms": ["ca"],
+        "synonyms": ["ca","alpha"],
         "short": "Ca atoms of protein residues",
         "description": [
           "Ca atoms of :term:`protein` residues, same as selection",
@@ -344,7 +344,7 @@
     "Secondary Structure": {
       "helix": {
         "name": "helix",
-        "synonyms": ["alpha"],
+        "synonyms": [],
         "short": "all helix types (H, G, I)",
         "description": [
           "All helix types as defined by DSSP/STRIDE: alpha, 3-10, and pi helix.",
