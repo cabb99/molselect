@@ -73,8 +73,7 @@ class ASTBuilder(Transformer):
     def range_value(self, start, end, step=None):
         start = self._to_node(start)
         end = self._to_node(end)
-        if step is not None:
-            step = self._to_node(step)
+        step = self._to_node(step) if step is not None else None
         return RangeValue(start, end, step)
 
     def regex_selection(self, operand, pattern):

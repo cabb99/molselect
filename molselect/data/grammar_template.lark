@@ -61,7 +61,8 @@ comparison_selection: math_or_number_expr (comparison_op math_or_number_expr)+
 // List-or-range
 property_selection: math_expr _IN? property_item+                        
 
-?property_item: range_value
+?property_item: "`" range_value "`"
+              | range_value
               | regex_value
               | quoted_string_value
               | string_value
@@ -71,7 +72,6 @@ range_value: number_expr _TO number_expr
            | number_expr _COLON number_expr  
            | number_expr _COLON number_expr _COLON number_expr
            | string_value _TO string_value
-           | "`" range_value "`"
 
 // Regex selection
 regex_selection: math_expr _REGEXP_OP regex_value
