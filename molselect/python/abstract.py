@@ -2,6 +2,7 @@ import json
 import math
 import os
 import re
+import warnings
 import numpy as np
 from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
@@ -252,7 +253,23 @@ class PropertySelection(Node):
                 step = v.step.evaluate(s) if (v.step is not None and isinstance(v.step, Node)) else v.step
                 range_mask = (col >= start) & (col <= end)
                 if step is not None:
-                    range_mask &= ((col - start) % step == 0)
+                    # Integer data is sometimes stored as float (e.g. resid with a missing value)
+                    try:
+                        # if all values are integers, step filtering is valid
+                        arr = np.asarray(col, dtype=float)
+                        finite = arr[np.isfinite(arr)]
+                        integer_valued = finite.size == 0 or bool(np.all(np.mod(finite, 1) == 0)) 
+                    except (TypeError, ValueError):
+                        integer_valued = True  # if unsure, keep the step (safe for integer data)
+                    if integer_valued:
+                        range_mask &= ((col - start) % step == 0)
+                    else:
+                        warnings.warn(
+                            f"molselect: step in range {start}:{end}:{step} ignored."
+                            f" column has non-integer values or modulo operation is not supported for column type {col.dtype}",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
                 mask |= range_mask
             else:
                 mask |= (col == v.evaluate(s) if isinstance(v, Node) else col == v)

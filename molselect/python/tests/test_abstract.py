@@ -1,5 +1,6 @@
 import pytest
 import math
+import warnings
 import numpy as np
 import pandas as pd
 from molselect.python import abstract
@@ -160,6 +161,42 @@ def test_property_selection_underscore_wildcard_cif():
     )
     result = node.evaluate(s)
     assert list(result) == [True, True, True, True, True, False]
+
+def test_property_selection_fractional_step_range_skips_and_warns():
+    """On genuinely fractional columns the step is skipped (modulo undefined) AND a warning is raised."""
+    s = PandasStructure(pd.DataFrame({'x': [0.0, 0.5, 1.0, 5.0, 20.0, 21.0]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='x'),
+        values=[abstract.RangeValue(start=0, end=20, step=2)],
+    )
+    with pytest.warns(RuntimeWarning, match=r"step in range .* ignored"):
+        result = node.evaluate(s)
+    assert list(result) == [True, True, True, True, True, False]
+
+def test_property_selection_int_step_range_applies_step():
+    """Step filtering applies on integer columns (no warning)."""
+    s = PandasStructure(pd.DataFrame({'a': [0, 1, 2, 3, 4, 5]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='a'),
+        values=[abstract.RangeValue(start=0, end=4, step=2)],
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = node.evaluate(s)
+    assert list(result) == [True, False, True, False, True, False]
+
+def test_property_selection_integer_valued_float_applies_step():
+    """The footgun: integer data stored as float (e.g. resid with a missing value) still applies the step."""
+    s = PandasStructure(pd.DataFrame({'resid': [0.0, 1.0, 2.0, 3.0, 4.0, np.nan]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='resid'),
+        values=[abstract.RangeValue(start=0, end=4, step=2)],
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = node.evaluate(s)
+    # 0,2,4 selected; 1,3 excluded by step; NaN excluded from range
+    assert list(result) == [True, False, True, False, True, False]
 
 def test_regex(structure, Field, LiteralValue, array_type):
     s = structure
