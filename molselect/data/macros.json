@@ -169,7 +169,7 @@
         "name": "acidic",
         "synonyms": [],
         "short": "acidic residues",
-        "description": "Acidic residues: `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `ASH <https://www.rcsb.org/ligand/ASH>`_, `GLH <https://www.rcsb.org/ligand/GLH>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_, `HISP <https://www.rcsb.org/ligand/HISP>`_, `SEP <https://www.rcsb.org/ligand/SEP>`_, `TPO <https://www.rcsb.org/ligand/TPO>`_, `PTR <https://www.rcsb.org/ligand/PTR>`_, `PHD <https://www.rcsb.org/ligand/PHD>`_.",
+        "description": "Acidic residues: `ASP <https://www.rcsb.org/ligand/ASP>`_, `GLU <https://www.rcsb.org/ligand/GLU>`_, `ASH <https://www.rcsb.org/ligand/ASH>`_, `GLH <https://www.rcsb.org/ligand/GLH>`_, `HSP <https://www.rcsb.org/ligand/HSP>`_, `HISP <https://www.rcsb.org/ligand/HISP>`_, and phosphorylated residues `SEP <https://www.rcsb.org/ligand/SEP>`_ (phosphoserine), `TPO <https://www.rcsb.org/ligand/TPO>`_ (phosphothreonine), `PTR <https://www.rcsb.org/ligand/PTR>`_ (phosphotyrosine), `PHD <https://www.rcsb.org/ligand/PHD>`_ (phosphohistidine).",
         "definition": "resname ASP GLU ASH GLH HSP HISP SEP TPO PTR PHD"
       },
       "basic": {
