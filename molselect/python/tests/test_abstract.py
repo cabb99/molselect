@@ -151,6 +151,16 @@ def test_property_selection(structure, Field):
     expected = s.get_property('s').isin(['foo', 'baz'])
     assert (result == expected).all()
 
+def test_property_selection_underscore_wildcard_cif():
+    """`_` wildcard matches empty/space/NaN plus CIF '.' (missing) and '?' (unknown) markers."""
+    s = PandasStructure(pd.DataFrame({'altloc': ['', ' ', '.', '?', np.nan, 'A']}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='altloc'),
+        values=[abstract.StringValue('_')],
+    )
+    result = node.evaluate(s)
+    assert list(result) == [True, True, True, True, True, False]
+
 def test_regex(structure, Field, LiteralValue, array_type):
     s = structure
     node = abstract.Regex(field=Field('s'), pattern=LiteralValue('ba.'))

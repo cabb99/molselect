@@ -234,7 +234,8 @@ class PropertySelection(Node):
                 value = v.evaluate(s)
                 if value == '_':
                     # ProDy convention: _ matches empty string, space, and NaN/missing.
-                    empty_mask = (col == '') | (col == ' ')
+                    # CIF uses '.' for missing values and '?' for unknown values.
+                    empty_mask = (col == '') | (col == ' ') | (col == '.') | (col == '?')
                     if hasattr(col, 'isna'):
                         empty_mask |= col.isna()
                     mask |= empty_mask
