@@ -2,6 +2,7 @@ import json
 import math
 import os
 import re
+import sys
 import warnings
 from decimal import Decimal
 import numpy as np
@@ -23,6 +24,72 @@ SEQUENCE_MAP = {}
 SEQUENCE_MAP.update(_seq_maps['RNA'])
 SEQUENCE_MAP.update(_seq_maps['DNA'])
 SEQUENCE_MAP.update(_seq_maps['protein'])
+
+# ---------------------------------------------------------------------------
+# Domain sanitization for math functions
+# ---------------------------------------------------------------------------
+_DOMAIN_TOLERANCE = 1e-6
+
+# Each entry: (lower_bound, upper_bound, clamp_low, clamp_high)
+# None means unbounded on that side; clamp values are what near-boundary values get clamped to.
+_FUNC_DOMAINS = {
+    'arcsin': (-1.0, 1.0, -1.0, 1.0),
+    'arccos': (-1.0, 1.0, -1.0, 1.0),
+    'sqrt':   (0.0, None, 0.0, None),
+    'log':    (0.0, None, sys.float_info.min, None),    # 0 itself → -inf (numpy default), keep
+    'log10':  (0.0, None, sys.float_info.min, None),
+}
+
+
+def _sanitize_domain(name, v, tol=_DOMAIN_TOLERANCE):
+    """Clamp near-boundary floating-point artifacts and count far-out-of-domain values.
+
+    Returns (sanitized_value, n_far_violations, n_total_elements).
+    Near-boundary values (within *tol* of a domain edge) are silently clamped.
+    Far out-of-domain values are left unchanged (numpy will produce NaN).
+    """
+    if name not in _FUNC_DOMAINS:
+        return v, 0, 0
+
+    lo, hi, clamp_lo, clamp_hi = _FUNC_DOMAINS[name]
+
+    # Operate on a numpy array for uniform handling; reconstruct original type at the end.
+    is_scalar = np.ndim(v) == 0
+    arr = np.asarray(v, dtype=float)
+    n_total = arr.size
+    n_far = 0
+
+    if lo is not None:
+        below = arr < lo
+        if below.any():
+            near_mask = below & (arr >= lo - tol)
+            far_mask = below & ~near_mask
+            n_far += int(far_mask.sum())
+            arr = np.where(near_mask, clamp_lo, arr)
+
+    if hi is not None:
+        above = arr > hi
+        if above.any():
+            near_mask = above & (arr <= hi + tol)
+            far_mask = above & ~near_mask
+            n_far += int(far_mask.sum())
+            arr = np.where(near_mask, clamp_hi, arr)
+
+    # Reconstruct original container type
+    if is_scalar:
+        result = float(arr)
+    else:
+        try:
+            import pandas as pd
+            if isinstance(v, pd.Series):
+                result = pd.Series(arr, index=v.index, name=v.name)
+            else:
+                result = arr
+        except ImportError:
+            result = arr
+
+    return result, n_far, n_total
+
 
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
@@ -569,7 +636,15 @@ class Func(Node):
             return v ** 2
         if self.name == 'abs':
             return np.abs(v)
-        return getattr(np, self.name)(v)
+        v, n_far, n_total = _sanitize_domain(self.name, v)
+        if n_far > 0:
+            warnings.warn(
+                f"molselect: {self.name}(): {n_far} of {n_total} values outside domain, returned as NaN",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        with np.errstate(invalid='ignore', divide='ignore'):
+            return getattr(np, self.name)(v)
 
 @dataclass
 class Number(Node):

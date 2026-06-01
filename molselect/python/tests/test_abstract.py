@@ -346,6 +346,82 @@ def test_func_number_const(structure, LiteralValue):
     with pytest.raises(ValueError):
         abstract.Const(name='unknown').evaluate(s)
 
+
+# --- Domain sanitization tests for Func ---
+
+def test_func_domain_in_domain_no_warning(structure, LiteralValue):
+    """Functions called with valid-domain inputs produce no warnings."""
+    s = structure
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        # arcsin/arccos: in [-1, 1]
+        assert math.isclose(abstract.Func(name='arcsin', arg=LiteralValue(0.5)).evaluate(s), math.asin(0.5))
+        assert math.isclose(abstract.Func(name='arccos', arg=LiteralValue(0.5)).evaluate(s), math.acos(0.5))
+        # sqrt, log, log10: positive values
+        assert math.isclose(abstract.Func(name='sqrt', arg=LiteralValue(4.0)).evaluate(s), 2.0)
+        assert math.isclose(abstract.Func(name='log', arg=LiteralValue(1.0)).evaluate(s), 0.0)
+        assert math.isclose(abstract.Func(name='log10', arg=LiteralValue(100.0)).evaluate(s), 2.0)
+        # sin/cos — no domain constraint, should not warn
+        abstract.Func(name='sin', arg=LiteralValue(1000.0)).evaluate(s)
+        abstract.Func(name='cos', arg=LiteralValue(1000.0)).evaluate(s)
+
+
+def test_func_domain_near_boundary_silent_clamp(structure, LiteralValue):
+    """Near-boundary FP artifacts (within tolerance) are silently clamped — no warning."""
+    s = structure
+    eps = 1e-8  # well within default tolerance of 1e-6
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        # arcsin(1 + eps) → clamped to arcsin(1) = π/2
+        r = abstract.Func(name='arcsin', arg=LiteralValue(1.0 + eps)).evaluate(s)
+        assert math.isclose(r, math.pi / 2, rel_tol=1e-9)
+        # arccos(-1 - eps) → clamped to arccos(-1) = π
+        r = abstract.Func(name='arccos', arg=LiteralValue(-1.0 - eps)).evaluate(s)
+        assert math.isclose(r, math.pi, rel_tol=1e-9)
+        # sqrt(-eps) → clamped to sqrt(0) = 0
+        r = abstract.Func(name='sqrt', arg=LiteralValue(-eps)).evaluate(s)
+        assert r == 0.0
+
+
+def test_func_domain_far_out_produces_nan_and_warning(structure, LiteralValue):
+    """Far-out-of-domain values produce NaN and a single consolidated RuntimeWarning."""
+    s = structure
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*outside domain"):
+        r = abstract.Func(name='arcsin', arg=LiteralValue(50.0)).evaluate(s)
+    assert math.isnan(r)
+
+    with pytest.warns(RuntimeWarning, match=r"sqrt.*outside domain"):
+        r = abstract.Func(name='sqrt', arg=LiteralValue(-5.0)).evaluate(s)
+    assert math.isnan(r)
+
+    with pytest.warns(RuntimeWarning, match=r"log.*outside domain"):
+        r = abstract.Func(name='log', arg=LiteralValue(-1.0)).evaluate(s)
+    assert math.isnan(r)
+
+
+def test_func_domain_log_zero_returns_neg_inf(structure, LiteralValue):
+    """log(0) returns -inf (mathematically correct limit), without RuntimeWarning."""
+    s = structure
+    # log(0) → -inf from numpy, our errstate suppresses the divide warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        r = abstract.Func(name='log', arg=LiteralValue(0.0)).evaluate(s)
+    assert r == float('-inf')
+
+
+def test_func_domain_array_mixed_values(LiteralValue):
+    """Array with mixed valid/near-boundary/far-out values: correct clamping + single warning with count."""
+    from molselect.python.backends.pandas import PandasStructure
+    s = PandasStructure(pd.DataFrame({'x': [0, 1, 2, 3]}))
+    # arcsin: [-1, 1] valid, 1+1e-8 near-boundary (clamp), 50 far-out (NaN)
+    vals = pd.Series([0.5, 1.0 + 1e-8, -1.0 - 1e-8, 50.0])
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*1 of 4.*outside domain"):
+        result = abstract.Func(name='arcsin', arg=LiteralValue(vals)).evaluate(s)
+    assert math.isclose(result.iloc[0], math.asin(0.5))
+    assert math.isclose(result.iloc[1], math.pi / 2, rel_tol=1e-9)
+    assert math.isclose(result.iloc[2], -math.pi / 2, rel_tol=1e-9)
+    assert math.isnan(result.iloc[3])
+
 # 4. Macro, Start, NotImplemented nodes
 def test_macro_start(structure):
     s = structure
