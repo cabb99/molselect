@@ -3,6 +3,7 @@ import math
 import os
 import re
 import warnings
+from decimal import Decimal
 import numpy as np
 from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
@@ -221,7 +222,49 @@ class RegexValue(DataValue):
     """Represents a regex value in the AST."""
     value: str
     def evaluate(self, s: Structure) -> str:
-        return self.value    
+        return self.value
+
+def numeric_tolerance_from_literal(text: str) -> float:
+    """Return half-unit tolerance implied by the decimal precision of a numeric literal.
+
+    Tolerance is derived from the **token text**, not the parsed float value, so
+    that ``12``, ``12.0``, and ``12.00`` can imply different precisions.
+
+    Examples::
+
+        "12"      -> 0.5        (integer: nearest whole unit)
+        "12.0"    -> 0.05       (1 decimal place)
+        "12.011"  -> 0.0005     (3 decimal places)
+        ".5"      -> 0.05       (1 decimal place, no integer part)
+        "12."     -> 0.5        (trailing dot = 0 fractional digits)
+        "1e1"     -> 5.0        (integer × 10^1: nearest 10)
+        "1.20e1"  -> 0.05       (2 decimal places × 10^1 → step 0.1)
+
+    This is documented as *decimal precision matching*, not significant-digit
+    matching — simpler and matches common expectations for atomic masses.
+    """
+    s = text.strip().lower()
+    m = re.fullmatch(r'([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?', s)
+    if not m:
+        raise ValueError(f"Invalid numeric literal: {text!r}")
+    frac_part = m.group(3)            # None if no '.'; '' if trailing '.'
+    exp_part = int(m.group(4) or 0)
+    decimal_places = len(frac_part) if frac_part is not None else 0
+    step = Decimal(10) ** Decimal(exp_part - decimal_places)
+    return float(step / 2)
+
+
+def _mass_tolerance(val: Any, node: Any) -> float:
+    """Return match tolerance for a mass value literal (VMD decimal-precision convention).
+
+    Delegates to :func:`numeric_tolerance_from_literal` when *node* is a
+    :class:`Number` AST node (i.e. the user typed a literal).  All other nodes
+    (expressions, variables, etc.) fall back to exact matching (0.0).
+
+    Only applied to the ``mass`` column; other float columns use exact equality.
+    """
+    return numeric_tolerance_from_literal(str(node.value)) if isinstance(node, Number) else 0.0
+
 
 @dataclass
 class PropertySelection(Node):
@@ -272,7 +315,20 @@ class PropertySelection(Node):
                         )
                 mask |= range_mask
             else:
-                mask |= (col == v.evaluate(s) if isinstance(v, Node) else col == v)
+                val = v.evaluate(s) if isinstance(v, Node) else v
+                # Mass literals match with a decimal-precision tolerance (VMD convention):
+                # `mass 12` matches C (12.011) via ±0.5, `mass 12.0` uses the tighter ±0.05.
+                # Other float columns keep exact equality.
+                is_mass = isinstance(self.field, SelectionKeyword) and self.field.name == 'mass'
+                tol = _mass_tolerance(val, v) if is_mass else 0.0
+                if tol > 0.0:
+                    try:
+                        col_is_float = hasattr(col, 'dtype') and col.dtype.kind == 'f'
+                    except (AttributeError, TypeError):
+                        col_is_float = False
+                    mask |= (col >= val - tol) & (col < val + tol) if col_is_float else (col == val)
+                else:
+                    mask |= (col == val)
         return mask
 
 

@@ -198,6 +198,55 @@ def test_property_selection_integer_valued_float_applies_step():
     # 0,2,4 selected; 1,3 excluded by step; NaN excluded from range
     assert list(result) == [True, False, True, False, True, False]
 
+@pytest.mark.parametrize("text,expected", [
+    ("12",      0.5),
+    ("12.0",    0.05),
+    ("12.011",  0.0005),
+    (".5",      0.05),
+    ("12.",     0.5),
+    ("1e1",     5.0),
+    ("1.20e1",  0.05),
+    ("0.0",     0.05),
+    ("100",     0.5),
+    ("1E8",     5e7),
+])
+def test_numeric_tolerance_from_literal(text, expected):
+    """Tolerance is derived from the literal's decimal precision, not its float value."""
+    tol = abstract.numeric_tolerance_from_literal(text)
+    assert tol == pytest.approx(expected, rel=1e-9), f"{text!r} → {tol}, expected {expected}"
+
+def test_property_selection_mass_integer_literal_tolerance():
+    """`mass 12` matches carbon (12.011) via integer ±0.5 tolerance; other elements excluded."""
+    s = PandasStructure(pd.DataFrame({'mass': [12.011, 24.305, 1.008, 15.999, 11.4]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='mass'),
+        values=[abstract.Number(value='12')],
+    )
+    result = node.evaluate(s)
+    # window [11.5, 12.5): only carbon 12.011; 11.4 falls just below
+    assert list(result) == [True, False, False, False, False]
+
+def test_property_selection_mass_decimal_literal_tolerance():
+    """`mass 12.0` uses the tighter ±0.05 tolerance (one decimal place)."""
+    s = PandasStructure(pd.DataFrame({'mass': [12.011, 12.04, 12.06, 11.97]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='mass'),
+        values=[abstract.Number(value='12.0')],
+    )
+    result = node.evaluate(s)
+    # window [11.95, 12.05): 12.06 excluded
+    assert list(result) == [True, True, False, True]
+
+def test_property_selection_non_mass_float_is_exact():
+    """Non-mass float columns keep exact equality — no tolerance is applied."""
+    s = PandasStructure(pd.DataFrame({'x': [12.0, 12.011, 11.6]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='x'),
+        values=[abstract.Number(value='12')],
+    )
+    result = node.evaluate(s)
+    assert list(result) == [True, False, False]
+
 def test_regex(structure, Field, LiteralValue, array_type):
     s = structure
     node = abstract.Regex(field=Field('s'), pattern=LiteralValue('ba.'))
