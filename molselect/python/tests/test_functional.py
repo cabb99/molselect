@@ -308,10 +308,101 @@ class MolSceneBackend(BackendInterface):
     """
     Uses MolScene and molselect Evaluator to count atoms and retrieve their indices.
     """
+
+    # Directories to search for pre-computed .dssp files
+    DSSP_SEARCH_DIRS = [
+        os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'tests'),  # canonical cache dir
+        os.path.join(os.path.dirname(__file__), '..', '..', '..'),  # project root
+        os.path.dirname(__file__),  # tests dir
+    ]
+
+    @staticmethod
+    def _parse_dssp_file(dssp_path: str) -> dict[tuple[str, int], str]:
+        """
+        Parse a legacy-format DSSP file and return a mapping of (chain, resid) -> SS letter.
+        SS letter is one of H, E, T, S, G, B, I, P, or 'C' for coil (space in DSSP).
+        """
+        result = {}
+        in_data = False
+        with open(dssp_path) as f:
+            for line in f:
+                if line.startswith('  #  RESIDUE'):
+                    in_data = True
+                    continue
+                if not in_data:
+                    continue
+                if len(line) < 17:
+                    continue
+                # Skip chain-break lines (marked with '!' in the amino acid column)
+                if line[13] == '!':
+                    continue
+                try:
+                    resid = int(line[5:10].strip())
+                except ValueError:
+                    continue
+                chain = line[11].strip()
+                ss = line[16]
+                if ss == ' ':
+                    ss = 'C'
+                result[(chain, resid)] = ss
+        return result
+
+    @staticmethod
+    def _apply_dssp_to_df(df, dssp_map: dict[tuple[str, int], str]):
+        """Apply DSSP assignments from a parsed DSSP map onto a DataFrame.
+
+        For CIF files, DSSP chain IDs correspond to auth_asym_id (author chain),
+        not label_asym_id (which MolScene stores as 'chain'). If auth_asym_id is
+        available and produces better overlap, use it for matching.
+        """
+        # Determine which chain column to use for DSSP key matching.
+        # For CIF files, label_asym_id (chain) may differ from auth_asym_id.
+        # DSSP uses author chain IDs, so compare actual (chain, resid) overlap.
+        chain_col = 'chain'
+        if 'auth_asym_id' in df.columns:
+            dssp_keys = set(dssp_map.keys())
+            resids = df['resid'].dropna()
+            try:
+                resid_ints = resids.astype(int)
+            except (ValueError, TypeError):
+                resid_ints = pd.Series(dtype=int)
+            valid = resid_ints.index
+            label_keys = set(zip(df.loc[valid, 'chain'], resid_ints))
+            auth_keys = set(zip(df.loc[valid, 'auth_asym_id'], resid_ints))
+            label_overlap = len(label_keys & dssp_keys)
+            auth_overlap = len(auth_keys & dssp_keys)
+            if auth_overlap > label_overlap:
+                chain_col = 'auth_asym_id'
+
+        ss_series = pd.Series('C', index=df.index)
+        for idx, row in df.iterrows():
+            chain = row.get(chain_col, '')
+            resid = row.get('resid', None)
+            if resid is not None:
+                try:
+                    resid_int = int(resid)
+                except (ValueError, TypeError):
+                    continue
+                key = (chain, resid_int)
+                if key in dssp_map:
+                    ss_series.at[idx] = dssp_map[key]
+        df['secondary'] = ss_series
+        return df
+
+    def _find_dssp_file(self, pdb_path: str) -> str | None:
+        """Find a pre-computed .dssp file for the given PDB/CIF file."""
+        stem = os.path.splitext(os.path.basename(pdb_path))[0]
+        for d in self.DSSP_SEARCH_DIRS:
+            candidate = os.path.join(os.path.abspath(d), stem + '.dssp')
+            if os.path.exists(candidate):
+                return candidate
+        return None
+
     def load_pdb_or_cif(self, path: str):
         """
         Load a PDB or CIF file into a Pandas DataFrame.
         """
+        basename = os.path.basename(path)
         if path.endswith('.pdb'):
             df = self.Scene.from_pdb(path)
         elif path.endswith('.cif'):
@@ -324,22 +415,29 @@ class MolSceneBackend(BackendInterface):
             df['secondary'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
         except Exception as e:
             logger.warning(f"compute_secondary_structure failed for {path}: {e}")
-            df['secondary'] = 'C'
+            # Fallback: try loading pre-computed DSSP file
+            dssp_path = self._find_dssp_file(path)
+            if dssp_path:
+                logger.info(f"Using pre-computed DSSP file: {dssp_path}")
+                dssp_map = self._parse_dssp_file(dssp_path)
+                df = self._apply_dssp_to_df(df, dssp_map)
+            else:
+                df['secondary'] = 'C'
         if 'model' in df.columns:
             df = df[df['model'] == 1]
         return df
-        
-    
+
     def count_atom_data(
         self,
         pdb_paths: list[str],
-        selections: list[str]
+        selections: list[dict[str, str]],
+        query_key: str = 'query'
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
         from molselect.python.backends.pandas import PandasStructure
         from molselect.python.evaluator import Evaluator
 
-        result_counts: dict[tuple[str,str], float] = {}
-        result_indices: dict[tuple[str,str], list[int]] = {}
+        result_counts: dict[tuple[str, str], float] = {}
+        result_indices: dict[tuple[str, str], list[int]] = {}
         selector = Evaluator(PandasStructure)
 
         for pdb in pdb_paths:
@@ -347,14 +445,14 @@ class MolSceneBackend(BackendInterface):
             try:
                 df = self.load_pdb_or_cif(pdb)
                 for sel in selections:
-                    sel = sel['query']
-                    key = (basename, sel)
+                    query_str = sel.get(query_key, sel['query']) if query_key != 'query' else sel['query']
+                    key = (basename, sel['query'])
                     try:
-                        sel_result = selector.parse(df, sel)
+                        sel_result = selector.parse(df, query_str)
                         count = len(sel_result.df)
                         idx_list = sel_result.df.index.to_list()
                     except Exception as e:
-                        logger.warning(f"[molselect] selection failed for '{sel}' on {basename}: {e}")
+                        logger.warning(f"[molselect] selection failed for '{query_str}' on {basename}: {e}")
                         count = np.nan
                         idx_list = []
                     result_counts[key] = count
@@ -368,8 +466,7 @@ class MolSceneBackend(BackendInterface):
 
         for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
-                sel = sel['query']
-                key = (pdb, sel)
+                key = (pdb, sel['query'])
                 result_counts.setdefault(key, np.nan)
                 result_indices.setdefault(key, [])
 
@@ -377,22 +474,17 @@ class MolSceneBackend(BackendInterface):
 
 
 
-import re
-
+# ---------------------------------------------------------------------------
 # Load PDB files and selection tests
+# ---------------------------------------------------------------------------
 
-# Helper functions to load PDB files and selection tests
 def load_selection_tests():
-    import os
-    import json
     jsonc_path = os.path.join(os.path.dirname(__file__), "selection_tests.jsonc")
     with open(jsonc_path, "r") as f:
         lines = f.readlines()
     clean_lines = [line for line in lines if not line.lstrip().startswith("//")]
     clean_json = "".join(clean_lines)
-    selection_tests = json.loads(clean_json)
-    selections = [test for test in selection_tests]
-    return selections
+    return json.loads(clean_json)
 
 
 def load_pdb_files():
