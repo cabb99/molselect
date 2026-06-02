@@ -57,6 +57,42 @@ class PandasStructure:
         return (d2 ** 0.5).min(axis=1)
     def get_positions(self, indices):
         return self.df.loc[indices][['x','y','z']].values
+    def get_sequence(self, sequence_map):
+        """Build per-chain 1-letter sequences (fast path for SequenceSelection).
+
+        Returns ``dict`` mapping ``chain_id -> (sequence_str, residue_indices)``,
+        where ``residue_indices[i]`` is the ``residue`` column value for
+        ``sequence_str[i]``. Residues whose resname is not in *sequence_map*
+        (water, ions, ligands) and rows with a missing ``residue`` are skipped.
+        Chains and residues are emitted in order of first appearance — identical
+        to the generic ``SequenceSelection._build_sequences`` fallback.
+        """
+        df = self.df
+        has_chain = 'chain' in df.columns
+        group_cols = ['chain', 'residue'] if has_chain else ['residue']
+        sub = df.loc[df['residue'].notna(), group_cols + ['resname']]
+        first_resname = sub.groupby(group_cols, sort=False)['resname'].first()
+
+        order, chars, idxs = [], {}, {}
+        for key, resname in first_resname.items():
+            if has_chain:
+                chain_val, res_idx = str(key[0]), key[1]
+            else:
+                chain_val, res_idx = '', key
+            code = sequence_map.get(str(resname).strip())
+            if code is None:
+                continue
+            try:
+                res_idx = int(res_idx)
+            except (ValueError, TypeError):
+                continue
+            if chain_val not in chars:
+                order.append(chain_val)
+                chars[chain_val] = []
+                idxs[chain_val] = []
+            chars[chain_val].append(code)
+            idxs[chain_val].append(res_idx)
+        return {c: (''.join(chars[c]), idxs[c]) for c in order}
     def equals(self, other):
         if not isinstance(other, PandasStructure):
             return False

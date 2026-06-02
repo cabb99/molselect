@@ -499,67 +499,73 @@ class SequenceSelection(Node):
         else:
             regex = re.compile(re.escape(pattern_str))
 
-        # 3. Get residue names and residue indices from the structure
-        resname_arr = s.get_property('resname')
+        # 3. Get residue indices for the mask
         residue_arr = s.get_property('residue')
 
-        # Also get chain if available, for chain-aware matching
+        # Fast path: if the backend provides get_sequence(), use it to avoid the Python loop.
+        # get_sequence(sequence_map) returns dict: chain -> (sequence_str, residue_indices_list)
+        if hasattr(s, 'get_sequence'):
+            chain_sequences = s.get_sequence(SEQUENCE_MAP)
+        else:
+            chain_sequences = self._build_sequences(s)
+
+        # 4. Match regex against each chain's sequence
+        matched_residues = set()
+        for chain_val, (seq_str, res_indices) in chain_sequences.items():
+            for m in regex.finditer(seq_str):
+                matched_residues.update(res_indices[m.start():m.end()])
+
+        # 5. Build the result mask: all atoms whose residue index is in matched set
+        if not matched_residues:
+            return s.array_filled(False)
+
+        return residue_arr.isin(list(matched_residues))
+
+    @staticmethod
+    def _build_sequences(s: Structure) -> dict:
+        """Generic fallback: build per-chain 1-letter sequences by iterating atoms.
+
+        Returns:
+            dict mapping chain_id -> (sequence_str, list_of_residue_indices)
+        """
+        resname_arr = s.get_property('resname')
+        residue_arr = s.get_property('residue')
         has_chain = 'chain' in s.columns
         if has_chain:
             chain_arr = s.get_property('chain')
 
-        # 4. Build per-chain sequences and collect matching residue indices
-        #    We iterate atoms in order, grouping by (chain, residue) to preserve order.
-        matched_residues = set()
-
-        # Build ordered list of (chain, residue_index, resname) — one per unique residue
         seen = set()
-        residue_info = []  # list of (chain, residue_idx, 1-letter code)
-
+        residue_info = []
         for i in range(s.len()):
             chain_val = str(chain_arr[i]) if has_chain else ''
             res_idx = residue_arr[i]
-
-            # Handle potential NaN or missing residue index
             try:
                 res_key = (chain_val, int(res_idx))
             except (ValueError, TypeError):
                 continue
-
             if res_key not in seen:
                 seen.add(res_key)
                 rn = str(resname_arr[i]).strip()
                 code = SEQUENCE_MAP.get(rn)
                 if code is None:
-                    # Unknown residue (water, ions, ligands) — skip, not part of sequence
                     continue
                 residue_info.append((chain_val, int(res_idx), code))
 
-        # 5. Group by chain, build sequence per chain, match
-        # Collect chains in order of appearance
         chain_order = []
-        chain_residues = {}  # chain -> list of (residue_idx, 1-letter code)
+        chain_residues = {}
         for chain_val, res_idx, code in residue_info:
             if chain_val not in chain_residues:
                 chain_order.append(chain_val)
                 chain_residues[chain_val] = []
             chain_residues[chain_val].append((res_idx, code))
 
+        result = {}
         for chain_val in chain_order:
             residues = chain_residues[chain_val]
             seq_str = ''.join(code for _, code in residues)
             res_indices = [idx for idx, _ in residues]
-
-            # Find all matches in this chain's sequence
-            for m in regex.finditer(seq_str):
-                start, end = m.start(), m.end()
-                matched_residues.update(res_indices[start:end])
-
-        # 6. Build the result mask: all atoms whose residue index is in matched set
-        if not matched_residues:
-            return s.array_filled(False)
-
-        return residue_arr.isin(list(matched_residues))
+            result[chain_val] = (seq_str, res_indices)
+        return result
 
 # Mathematical Operations
 @dataclass

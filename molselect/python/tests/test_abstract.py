@@ -497,6 +497,57 @@ def test_sequence_selection(sequence_structure):
     assert s.select(result).len() == 6  # res 0(A) + res 1(C) in chain A + res 3(A) in chain B
 
 
+def test_sequence_selection_uses_get_sequence_fast_path():
+    """If a backend provides get_sequence(), SequenceSelection uses it instead of the atom loop."""
+    class FastStructure(PandasStructure):
+        called = False
+        def get_sequence(self, sequence_map):
+            FastStructure.called = True
+            # Deliberately disagree with the resnames below: report 'AAA' so that a
+            # query of 'CD' matches nothing IFF the fast path (not the atom loop) is used.
+            return {'A': ('AAA', [0, 1, 2])}
+
+    s = FastStructure(pd.DataFrame({
+        'residue': [0, 1, 2],
+        'resname': ['ALA', 'CYS', 'ASP'],   # atom-loop would spell 'ACD'
+        'chain': ['A', 'A', 'A'],
+    }))
+    node = abstract.SequenceSelection(abstract.StringValue('CD'))
+    result = node.evaluate(s)
+    assert FastStructure.called is True
+    # fast-path sequence 'AAA' has no 'CD' → nothing selected (proves fast path drove the result)
+    assert list(result) == [False, False, False]
+
+
+def test_pandas_get_sequence_contract():
+    """PandasStructure.get_sequence: per-chain sequences, unknown resnames and missing residues skipped."""
+    s = PandasStructure(pd.DataFrame({
+        'residue': [0, 0, 1, 2, 3],
+        'resname': ['ALA', 'ALA', 'CYS', 'ASP', 'HOH'],  # HOH not in SEQUENCE_MAP → skipped
+        'chain':   ['A', 'A', 'A', 'B', 'B'],
+    }))
+    seqs = s.get_sequence(abstract.SEQUENCE_MAP)
+    assert seqs == {'A': ('AC', [0, 1]), 'B': ('D', [2])}
+
+
+def test_pandas_get_sequence_no_chain_column():
+    """Without a chain column all residues fall under a single '' chain (matches the fallback)."""
+    s = PandasStructure(pd.DataFrame({'residue': [0, 1, 2], 'resname': ['ALA', 'CYS', 'ASP']}))
+    seqs = s.get_sequence(abstract.SEQUENCE_MAP)
+    assert seqs == {'': ('ACD', [0, 1, 2])}
+
+
+def test_pandas_get_sequence_matches_fallback():
+    """The fast path and the generic atom-loop fallback produce identical sequences."""
+    df = pd.DataFrame({
+        'residue': [0, 0, 1, 2, 2, 3],
+        'resname': ['ALA', 'ALA', 'CYS', 'ASP', 'ASP', 'GLY'],
+        'chain':   ['A', 'A', 'B', 'A', 'A', 'B'],
+    })
+    s = PandasStructure(df)
+    assert s.get_sequence(abstract.SEQUENCE_MAP) == abstract.SequenceSelection._build_sequences(s)
+
+
 def test_notimplemented_nodes(structure):
     s = structure
     with pytest.raises(NotImplementedError):
