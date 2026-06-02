@@ -36,7 +36,7 @@
     {"description": "Residue id", "query": "resid 4"},
     {"description": "Index", "query": "index 5"},
     {"description": "Backbone", "query": "backbone", "vmd_query": "(protein or same resname as protein) and backbone", "note": "MolSelect backbone = protein backbone only; VMD includes nucleic backbone"},
-    {"description": "acidic", "query": "acidic"},
+    {"description": "acidic", "query": "acidic", "vmd_query": "acidic or resname SEP TPO PTR PHD", "note": "MolSelect includes phosphorylated residues (SEP/TPO/PTR/PHD) as chemically acidic. VMD's built-in acidic excludes PTMs; ProDy's built-in acidic flag already includes SEP/TPO."},
     
     {"description": "None atoms", "query": "none"},
     {"description": "Waters alias", "query": "waters","prody_query":"resname HOH DOD WAT TIP3 H2O OH2 TIP TIP2 TIP4"},
@@ -55,12 +55,12 @@
     {"description": "AND logic", "query": "oxygen and water"},
     {"description": "OR logic", "query": "oxygen or water"},
     {"description": "NOT logic", "query": "not water"},
-    {"description": "Implicit AND after not", "query": "not water acidic", "vmd_query": "not water and acidic", "note": "VMD parses spaces as \"and\" and lets a leading not negate the whole implicit AND chain so \"not acidic water\" = \"not (acidic and water)\" which is not equivalent to \"not water and acidic\", molscene and prody do not support this."},
+    {"description": "Implicit AND after not", "query": "not water acidic", "prody_query": "not water and acidic", "vmd_query": "not water and (acidic or resname SEP TPO PTR PHD)", "note": "VMD parses spaces as \"and\" and lets a leading not negate the whole implicit AND chain so \"not acidic water\" = \"not (acidic and water)\" which is not equivalent to \"not water and acidic\", molscene and prody do not support this. VMD acidic excludes PTMs; override adds SEP/TPO/PTR/PHD."},
     {"description": "Default AND with fields", "query": "resname ALA PHE name CA CB", "vmd_query": "resname ALA PHE and name CA CB"},
-    {"description": "Default AND with flags", "query": "acidic calpha", "vmd_query": "acidic and name CA"},
-    {"description": "Parentheses", "query": "(oxygen or protein) and not acidic", "vmd_query": "(oxygen or (protein or same resname as protein)) and not acidic", "note": "VMD protein excludes OXT-containing residues"},
+    {"description": "Default AND with flags", "query": "acidic name CA", "vmd_query": "(acidic or resname SEP TPO PTR PHD) and name CA", "note": "VMD acidic excludes PTMs; override adds SEP/TPO/PTR/PHD."},
+    {"description": "Parentheses", "query": "(oxygen or carbon) and not acidic", "vmd_query": "(oxygen or carbon) and not (acidic or resname SEP TPO PTR PHD)", "note": "VMD acidic excludes PTMs; override adds SEP/TPO/PTR/PHD."},
     {"description": "Nested NOT", "query": "not not (oxygen and water)"},
-    {"description": "NOT with !", "query": "!acidic", "prody_query": "not acidic", "vmd_query": "not acidic", "note": "ProDy and VMD use not instead of !"},
+    {"description": "NOT with !", "query": "!acidic", "prody_query": "not acidic", "vmd_query": "not (acidic or resname SEP TPO PTR PHD)", "note": "ProDy and VMD use not instead of !. VMD acidic excludes PTMs; override adds SEP/TPO/PTR/PHD."},
 
     // --- Numeric comparisons and ranges ---
     {"description": "Numeric comparison", "query": "mass>12", "note": "VMD rounds mass to integer; MolSelect uses exact float mass"},
@@ -156,7 +156,7 @@
     {"description": "Select basic atoms flag", "query": "basic"},
     {"description": "Select buried atoms flag", "query": "buried"},
 
-    {"description": "Select charged atoms flag", "query": "charged"},
+    {"description": "Select charged atoms flag", "query": "charged", "prody_query": "charged or resname SEP TPO PTR PHD", "vmd_query": "charged or resname SEP TPO PTR PHD", "note": "MolSelect charged includes PTMs (SEP/TPO/PTR/PHD) via acidic; both ProDy and VMD built-in charged flags exclude PTMs."},
     {"description": "Select cyclic atoms flag", "query": "cyclic"},
     {"description": "Select heme flag", "query": "heme"},
     {"description": "Select hydrophobic atoms flag", "query": "hydrophobic"},
@@ -191,7 +191,7 @@
     {"description": "Select coil and protein without explicit AND", "query": "coil protein", "prody_query": "((secstr S T) or (not secstr H G I E B S T P)) and protein", "vmd_query": "SKIP", "note": "Same coil definition mismatch as above."},
     {"description": "Select sidechain, sc, and protein without explicit AND", "query": "sidechain sc protein", "vmd_query": "protein and not backbone", "note": "VMD: sidechain sc protein = sidechain = protein and not backbone"},
     {"description": "Select bbfull and bb without explicit AND", "query": "bbfull bb", "vmd_query": "backbone", "note": "VMD: bbfull AND backbone = backbone; VMD has no bbfull macro"},
-    {"description": "Select charged and basic in parentheses without explicit AND", "query": "(charged basic)"},
+    {"description": "Select charged and basic in parentheses without explicit AND", "query": "(charged basic)", "prody_query": "(charged or resname SEP TPO PTR PHD) and basic", "vmd_query": "(charged or resname SEP TPO PTR PHD) and basic", "note": "MolSelect charged includes PTMs; both ProDy and VMD charged excludes PTMs."},
     {"description": "Select protein and nucleic in parentheses without explicit AND", "query": "(protein nucleic)"},
     {"description": "Select noh, hetero, and water without explicit AND", "query": "noh hetero water"},
     {"description": "Select ca and occupancy > 0 with explicit AND", "query": "ca and occupancy > 0", "vmd_query": "name CA and same resname as protein and occupancy > 0", "note": "VMD does not have ca macro; calpha = name CA + protein residues"},
