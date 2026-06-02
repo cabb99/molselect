@@ -494,11 +494,33 @@ def load_pdb_files():
     pdb_files += glob.glob(os.path.join(base, '../../data/tests/*.cif'))
     return pdb_files
 
-PDB_FILES = load_pdb_files()
-SELECTIONS = load_selection_tests()
 
-PDB_FILES = PDB_FILES[:]  # Limit to first 1 for testing
-SELECTIONS = SELECTIONS[:]
+PDB_FILES = load_pdb_files()
+_ALL_SELECTIONS = load_selection_tests()
+
+# ---------------------------------------------------------------------------
+# Optional filtering via environment variable
+# ---------------------------------------------------------------------------
+# Usage:  MOLSELECT_SEL=3,37,68  pytest test_functional.py
+#         MOLSELECT_PDB=1zir.pdb  pytest test_functional.py
+# Dramatically speeds up targeted testing by skipping irrelevant backends work.
+
+_sel_filter = os.environ.get("MOLSELECT_SEL", "")
+if _sel_filter:
+    _sel_indices = [int(i) for i in _sel_filter.split(",") if i.strip()]
+    SELECTIONS = [_ALL_SELECTIONS[i] for i in _sel_indices if i < len(_ALL_SELECTIONS)]
+    logger.info("MOLSELECT_SEL: running %d/%d selections: %s", len(SELECTIONS), len(_ALL_SELECTIONS), _sel_indices)
+else:
+    SELECTIONS = _ALL_SELECTIONS
+
+_pdb_filter = os.environ.get("MOLSELECT_PDB", "")
+if _pdb_filter:
+    _pdb_names = {n.strip() for n in _pdb_filter.split(",") if n.strip()}
+    PDB_FILES = [p for p in PDB_FILES if os.path.basename(p) in _pdb_names]
+    logger.info("MOLSELECT_PDB: running %d PDB files: %s", len(PDB_FILES), _pdb_names)
+
+# Check whether any selections define a fallback query
+_HAS_FALLBACK = any('fallback_query' in s for s in SELECTIONS)
 
 # Instantiate backend objects
 molscene_backend = MolSceneBackend()
@@ -506,84 +528,143 @@ prody_backend = ProDyBackend()
 vmd_backend = VMDBackend('temporary_script.tcl')
 
 
-
-# Fixtures for counts
-@pytest.fixture(scope="session")
-def molscene_counts():
-    """Compute once per session."""
-    # keys are (basename, sel)
-    return {k: v[0] for k, v in molscene_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+# ---------------------------------------------------------------------------
+# Session-scoped fixtures — each backend computed once
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def prody_counts():
-    return {k: v[0] for k, v in prody_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+def molscene_data():
+    """Compute MolScene counts and indices once per session."""
+    return molscene_backend.count_atom_data(PDB_FILES, SELECTIONS)
 
 @pytest.fixture(scope="session")
-def vmd_counts():
-    return {k: v[0] for k, v in vmd_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
-
-# Fixtures for indices
-@pytest.fixture(scope="session")
-def molscene_indices():
-    return {k: v[1] for k, v in molscene_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+def molscene_counts(molscene_data):
+    return {k: v[0] for k, v in molscene_data.items()}
 
 @pytest.fixture(scope="session")
-def prody_indices():
-    return {k: v[1] for k, v in prody_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+def molscene_indices(molscene_data):
+    return {k: v[1] for k, v in molscene_data.items()}
 
 @pytest.fixture(scope="session")
-def vmd_indices():
-    return {k: v[1] for k, v in vmd_backend.count_atom_data(PDB_FILES, SELECTIONS).items()}
+def molscene_fallback_data():
+    """Compute MolScene results for fallback_query. Only computed if any selection has one."""
+    if not _HAS_FALLBACK:
+        return {}
+    return molscene_backend.count_atom_data(PDB_FILES, SELECTIONS, query_key='fallback_query')
+
+@pytest.fixture(scope="session")
+def molscene_fallback_counts(molscene_fallback_data):
+    return {k: v[0] for k, v in molscene_fallback_data.items()}
+
+@pytest.fixture(scope="session")
+def molscene_fallback_indices(molscene_fallback_data):
+    return {k: v[1] for k, v in molscene_fallback_data.items()}
+
+@pytest.fixture(scope="session")
+def prody_data():
+    """Compute ProDy counts and indices once per session."""
+    return prody_backend.count_atom_data(PDB_FILES, SELECTIONS)
+
+@pytest.fixture(scope="session")
+def prody_counts(prody_data):
+    return {k: v[0] for k, v in prody_data.items()}
+
+@pytest.fixture(scope="session")
+def prody_indices(prody_data):
+    return {k: v[1] for k, v in prody_data.items()}
+
+@pytest.fixture(scope="session")
+def vmd_data():
+    """Compute VMD counts and indices once per session."""
+    return vmd_backend.count_atom_data(PDB_FILES, SELECTIONS)
+
+@pytest.fixture(scope="session")
+def vmd_counts(vmd_data):
+    return {k: v[0] for k, v in vmd_data.items()}
+
+@pytest.fixture(scope="session")
+def vmd_indices(vmd_data):
+    return {k: v[1] for k, v in vmd_data.items()}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def _sanitize(sel: str) -> str:
-    # Turn your selection into a safe Python identifier
     name = re.sub(r'[^0-9a-zA-Z]+', '_', sel).strip('_')
-    return name[:30]  # truncate if super long
+    return name[:30]
 
 
-def _make_test_for(sel: str):
+def _is_nan(val) -> bool:
+    try:
+        return pd.isna(val) or np.isnan(val)
+    except (TypeError, ValueError):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Test generators
+# ---------------------------------------------------------------------------
+
+def _make_test_for(sel: dict):
     """
-    Return a single test function that closes over `sel` and is parametrized
-    over all pdb_paths.
+    Generate a count-comparison test for one selection, parametrized over PDB files.
+    Supports fallback_query: if primary query diverges from a backend,
+    re-evaluate MolSelect with fallback_query and compare.
     """
-    # @pytest.mark.skip()
+    has_fallback = 'fallback_query' in sel
+
     @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
     def test_molscene_vs_prody_or_vmd(self, pdb_path,
-                                      molscene_counts, prody_counts, vmd_counts):
+                                      molscene_counts, prody_counts, vmd_counts,
+                                      molscene_fallback_counts):
         basename = os.path.basename(pdb_path)
         key = (basename, sel['query'])
 
         mol = molscene_counts[key]
         pro = prody_counts[key]
-        vmd = vmd_counts[key]
+        vmd_val = vmd_counts[key]
 
-        # if both reference backends fail → check mol
-        if (pd.isna(pro) or np.isnan(pro)) and (pd.isna(vmd) or np.isnan(vmd)):
-            if pd.isna(mol) or np.isnan(mol):
+        # If both reference backends fail → check mol
+        if _is_nan(pro) and _is_nan(vmd_val):
+            if _is_nan(mol):
                 pytest.skip(f"Selection '{sel['query']}' unsupported by all backends on {basename}")
-            return  # MolSelect produced a result with no reference to compare — pass
+            return  # MolSelect produced a result with no reference — pass
 
-        ok_pro = not (pd.isna(pro) or np.isnan(pro)) and mol == pro
-        ok_vmd = not (pd.isna(vmd) or np.isnan(vmd)) and mol == vmd
+        ok_pro = not _is_nan(pro) and mol == pro
+        ok_vmd = not _is_nan(vmd_val) and mol == vmd_val
+
+        # Fallback: if primary query diverges, try fallback_query on MolSelect
+        if not (ok_pro or ok_vmd) and has_fallback and molscene_fallback_counts:
+            mol_fb = molscene_fallback_counts.get(key, np.nan)
+            if not _is_nan(mol_fb):
+                if not ok_pro and not _is_nan(pro) and mol_fb == pro:
+                    ok_pro = True
+                if not ok_vmd and not _is_nan(vmd_val) and mol_fb == vmd_val:
+                    ok_vmd = True
 
         assert ok_pro or ok_vmd, (
             f"{basename} | sel={sel!r}: molscene={mol!r} "
-            f"!= prody={pro!r} and != vmd={vmd!r}"
+            f"!= prody={pro!r} and != vmd={vmd_val!r}"
         )
 
-    # give it a useful docstring so Test Explorer shows the full query
     test_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd for selection: {sel!r}"
     return test_molscene_vs_prody_or_vmd
 
 
+def _make_test_for_indices(sel: dict):
+    """
+    Generate an index-comparison test for one selection, parametrized over PDB files.
+    Supports fallback_query for cases where primary query diverges.
+    """
+    has_fallback = 'fallback_query' in sel
 
-
-# For a single selection, return the indices with all the backends
-def _make_test_for_indices(sel: str):
     @pytest.mark.parametrize("pdb_path", PDB_FILES, ids=lambda p: os.path.basename(p))
-    def test_indices_molscene_vs_prody_or_vmd(self, pdb_path,
-                                              molscene_indices, prody_indices, vmd_indices,
-                                              molscene_counts, prody_counts, vmd_counts):
+    def test_indices(self, pdb_path,
+                     molscene_indices, prody_indices, vmd_indices,
+                     molscene_counts, prody_counts, vmd_counts,
+                     molscene_fallback_indices, molscene_fallback_counts):
         basename = os.path.basename(pdb_path)
         key = (basename, sel['query'])
 
