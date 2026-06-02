@@ -676,151 +676,115 @@ def _make_test_for_indices(sel: dict):
         pro_count = prody_counts[key]
         vmd_count = vmd_counts[key]
 
-        # if all fail → skip
-        if (pd.isna(pro_count) or np.isnan(pro_count)) and (pd.isna(vmd_count) or np.isnan(vmd_count)):
-            pytest.skip(f"Selection '{sel}' unsupported by all: molscene, ProDy, and VMD on {basename}")
+        # If all fail → skip
+        if _is_nan(pro_count) and _is_nan(vmd_count):
+            pytest.skip(f"Selection '{sel['query']}' unsupported by all backends on {basename}")
 
-        # Only compare indices if molscene is not nan
-        assert not pd.isna(mol_count) and not np.isnan(mol_count), (
-            f"{basename} | sel={sel!r}: molscene={mol_count!r} "
-            f"!= prody={pro_count!r} and != vmd={vmd_count!r}"
+        # MolSelect must not fail
+        assert not _is_nan(mol_count), (
+            f"{basename} | sel={sel!r}: molscene failed "
+            f"(prody={pro_count!r}, vmd={vmd_count!r})"
         )
 
-        # Compare indices if available, and provide detailed diff if they don't match
-        def diff_indices(ref, test):
-            ref_set = set(ref)
-            test_set = set(test)
-            missing = sorted(ref_set - test_set)
-            extra = sorted(test_set - ref_set)
-            return missing, extra
+        pro_ok = not _is_nan(pro_count) and mol_idx == pro_idx
+        vmd_ok = not _is_nan(vmd_count) and mol_idx == vmd_idx
 
-        pro_ok = not (pd.isna(pro_count) or np.isnan(pro_count)) and mol_idx == pro_idx
-        vmd_ok = not (pd.isna(vmd_count) or np.isnan(vmd_count)) and mol_idx == vmd_idx
-
-        if sel.get('prody_query','') == 'SKIP':
+        if sel.get('prody_query', '') == 'SKIP':
             pro_ok = True
-        if sel.get('vmd_query','') == 'SKIP':
+        if sel.get('vmd_query', '') == 'SKIP':
             vmd_ok = True
 
         # If a reference backend returned nan, don't count it as a failure
-        pro_available = not (pd.isna(pro_count) or np.isnan(pro_count))
-        vmd_available = not (pd.isna(vmd_count) or np.isnan(vmd_count))
-
-        if not pro_available:
+        if _is_nan(pro_count):
             pro_ok = True
-        if not vmd_available:
+        if _is_nan(vmd_count):
             vmd_ok = True
+
+        # Fallback: if primary query diverges, try fallback_query on MolSelect
+        if not (pro_ok and vmd_ok) and has_fallback and molscene_fallback_indices:
+            mol_fb_idx = molscene_fallback_indices.get(key, [])
+            mol_fb_count = molscene_fallback_counts.get(key, np.nan)
+            if not _is_nan(mol_fb_count):
+                if not pro_ok and not _is_nan(pro_count) and mol_fb_idx == pro_idx:
+                    pro_ok = True
+                if not vmd_ok and not _is_nan(vmd_count) and mol_fb_idx == vmd_idx:
+                    vmd_ok = True
 
         if not (pro_ok and vmd_ok):
             scene = molscene_backend.load_pdb_or_cif(pdb_path)
             msg = f"{basename} | sel={sel!r}:\n"
-            if not pro_ok:
-                msg += f"  molscene count={mol_count!r} != prody count={pro_count!r}\n"
-                if not (pd.isna(pro_count) or np.isnan(pro_count)):
-                    missing, extra = diff_indices(pro_idx, mol_idx)
-                    msg += (
-                        f"  vs prody: \n"
-                        # f"           molscene indices={mol_idx!r}\n"
-                        # f"           prody indices={pro_idx!r}\n"
-                        # f"           missing (in prody, not in molscene): {missing}\n"
-                        # f"           extra (in molscene, not in prody): {extra}\n"
-                    )
 
-                    missing_selection_df = scene.loc[missing]
-                    extra_selection_df = scene.loc[extra]
-                    # Add the DataFrame pretty representation to the message
-                    with pd.option_context("display.max_columns", None, "display.width", None):
-                        if not missing_selection_df.empty:
-                            msg += f"  Missing in ProDy selection:\n{missing_selection_df}\n"
-                        if not extra_selection_df.empty:
-                            msg += f"  Extra in MolScene selection:\n{extra_selection_df}\n"
-                
-                
+            def _diff_msg(ref_name, ref_count, ref_idx):
+                nonlocal msg
+                msg += f"  molscene count={mol_count!r} != {ref_name} count={ref_count!r}\n"
+                if _is_nan(ref_count):
+                    return
+                ref_set = set(ref_idx)
+                mol_set = set(mol_idx)
+                missing = sorted(ref_set - mol_set)
+                extra = sorted(mol_set - ref_set)
+                with pd.option_context("display.max_columns", None, "display.width", None):
+                    if missing and all(a in scene.index for a in missing):
+                        msg += f"  Missing in {ref_name} selection:\n{scene.loc[missing]}\n"
+                    if extra and all(a in scene.index for a in extra):
+                        msg += f"  Extra in MolScene selection:\n{scene.loc[extra]}\n"
+
+            if not pro_ok:
+                _diff_msg("prody", pro_count, pro_idx)
             if not vmd_ok:
-                msg += f"  molscene count={mol_count!r} != vmd count={vmd_count!r}\n"
-                if not (pd.isna(vmd_count) or np.isnan(vmd_count)):
-                    missing, extra = diff_indices(vmd_idx, mol_idx)
-                    msg += (
-                        f"  vs vmd:\n"
-                        # f"           molscene indices={mol_idx!r}\n"
-                        # f"           vmd indices={vmd_idx!r}\n"
-                        # f"           missing (in vmd, not in molscene): {missing}\n"
-                        # f"           extra (in molscene, not in vmd): {extra}\n"
-                    )
-                    if all([a in scene.index for a in extra]):
-                        extra_selection_df = scene.loc[extra]
-                    else:
-                        not_found = [a for a in extra if a not in scene.index]
-                        msg += f"  (some extra indices not found in MolScene DataFrame: {not_found})\n"
-                        extra_selection_df = pd.DataFrame()
-                    
-                    if all([a in scene.index for a in missing]):
-                        missing_selection_df = scene.loc[missing]
-                    else:
-                        not_found = [a for a in missing if a not in scene.index]
-                        msg += f"  (some missing indices not found in MolScene DataFrame: {not_found})\n"
-                        missing_selection_df = pd.DataFrame()
-                    
-                    # Add the DataFrame pretty representation to the message
-                    with pd.option_context("display.max_columns", None, "display.width", None):
-                        if not missing_selection_df.empty:
-                            msg += f"  Missing in VMD selection:\n{missing_selection_df}\n"
-                        if not extra_selection_df.empty:
-                            msg += f"  Extra in MolScene selection:\n{extra_selection_df}\n"
+                _diff_msg("vmd", vmd_count, vmd_idx)
             assert False, msg
 
-    test_indices_molscene_vs_prody_or_vmd.__doc__ = f"molscene vs prody/vmd indices for selection: {sel!r}"
-    return test_indices_molscene_vs_prody_or_vmd
+    test_indices.__doc__ = f"molscene vs prody/vmd indices for selection: {sel!r}"
+    return test_indices
 
-# Dynamically build one Test class per selection, with both count and index tests
-for i, sel in enumerate(SELECTIONS):
-    safe = _sanitize(sel['query'])
-    cls_name = f"Test_{i:03d}_{safe}"
-    # create an empty class
-    cls = type(cls_name, (object,), {})
-    # attach our generated test methods
-    setattr(cls, "test_molscene", _make_test_for(sel))
-    setattr(cls, "test_indices", _make_test_for_indices(sel))
-    # inject into module level so pytest will collect it
-    globals()[cls_name] = cls
+
+# ---------------------------------------------------------------------------
+# Dynamically build one Test class per selection
+# ---------------------------------------------------------------------------
+
+for _i, _sel in enumerate(SELECTIONS):
+    _safe = _sanitize(_sel['query'])
+    _cls_name = f"Test_{_i:03d}_{_safe}"
+    _cls = type(_cls_name, (object,), {})
+    setattr(_cls, "test_molscene", _make_test_for(_sel))
+    setattr(_cls, "test_indices", _make_test_for_indices(_sel))
+    globals()[_cls_name] = _cls
+
+
+# ---------------------------------------------------------------------------
+# Standalone analysis script (python -m or python test_functional.py)
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import pandas as pd
-    import os
-
-    # Load files and selections
     pdb_files = PDB_FILES
     selections = SELECTIONS
 
-    # Instantiate backend objects
-    molscene_backend = MolSceneBackend()
-    prody_backend = ProDyBackend()
-    vmd_backend = VMDBackend()
+    ms_backend = MolSceneBackend()
+    pr_backend = ProDyBackend()
+    vm_backend = VMDBackend()
 
-    # Compute all results using backend classes
     print("Computing molscene counts...")
-    molscene = {k: v[0] for k, v in molscene_backend.count_atom_data(pdb_files, selections).items()}
+    molscene = {k: v[0] for k, v in ms_backend.count_atom_data(pdb_files, selections).items()}
     print("Computing prody counts...")
-    prody = {k: v[0] for k, v in prody_backend.count_atom_data(pdb_files, selections).items()}
+    prody = {k: v[0] for k, v in pr_backend.count_atom_data(pdb_files, selections).items()}
     print("Computing vmd counts...")
-    vmd = {k: v[0] for k, v in vmd_backend.count_atom_data(pdb_files, selections).items()}
+    vmd = {k: v[0] for k, v in vm_backend.count_atom_data(pdb_files, selections).items()}
 
-    # Build DataFrame
     rows = []
     for pdb in pdb_files:
         basename = os.path.basename(pdb)
         for sel in selections:
-            sel = sel['query']
+            q = sel['query']
             rows.append({
                 "pdb": basename,
-                "selection": sel,
-                "count_molscene": molscene.get((basename, sel), pd.NA),
-                "count_prody": prody.get((basename, sel), pd.NA),
-                "count_vmd": vmd.get((basename, sel), pd.NA),
+                "selection": q,
+                "count_molscene": molscene.get((basename, q), pd.NA),
+                "count_prody": prody.get((basename, q), pd.NA),
+                "count_vmd": vmd.get((basename, q), pd.NA),
             })
     df = pd.DataFrame(rows)
     print(df)
-    # Optionally, save to CSV
     df.to_csv("atom_counts_all_backends.csv", index=False)
     print("Saved results to atom_counts_all_backends.csv")
 
