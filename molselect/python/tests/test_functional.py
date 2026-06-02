@@ -1,8 +1,11 @@
 import os
+import json
+import re
 import subprocess
 import tempfile
 import logging
-from typing import Union
+from abc import ABC, abstractmethod
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -10,31 +13,19 @@ import pytest
 logger = logging.getLogger(__name__)
 BACKUP_PATH = os.path.join(os.path.dirname(__file__), "atom_counts_backup.csv")
 
-import os
-import json
-import subprocess
-import tempfile
-import logging
-import pandas as pd
-import numpy as np
-from abc import ABC, abstractmethod
 
-logger = logging.getLogger(__name__)
-
-
-# Move BackendInterface above Backup to fix NameError
 class BackendInterface(ABC):
     """
     Abstract interface for atom-count backends.
     Each backend must implement `count_atom_data`, returning a mapping
-    (basename, selection) -> (count, indices_list).
+    (basename, selection_query) -> (count, indices_list).
     """
 
     @abstractmethod
     def count_atom_data(
         self,
         pdb_paths: list[str],
-        selections: list[str]
+        selections: list[dict[str, str]]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
         ...
 
@@ -133,33 +124,22 @@ def _escape_tcl(sel: str) -> str:
     )
 
 
-class BackendInterface(ABC):
-    """
-    Abstract interface for atom-count backends.
-    Each backend must implement `count_atom_data`, returning a mapping
-    (basename, selection) -> (count, indices_list).
-    """
-
-    @abstractmethod
-    def count_atom_data(
-        self,
-        pdb_paths: list[str],
-        selections: list[dict[str, str]]
-    ) -> dict[tuple[str, str], tuple[int, list[int]]]:
-        ...
-
-
 class VMDBackend(BackendInterface):
     """
     Uses VMD (text mode) to count atoms and retrieve their indices.
+    Supports a vmd_query override per selection.
     """
     def __init__(self, tcl_script_path: str | None = None):
         self.tcl_script_path = tcl_script_path
 
+    def _get_vmd_query(self, sel: dict) -> str:
+        """Resolve which query string VMD should use for this selection."""
+        return sel['vmd_query'] if 'vmd_query' in sel else sel['query']
+
     def count_atom_data(
         self,
         pdb_paths: list[str],
-        selections: list[str]
+        selections: list[dict[str, str]]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
         delimiter = '|----|'
         tcl_lines: list[str] = []
@@ -169,11 +149,11 @@ class VMDBackend(BackendInterface):
             tcl_lines.append(f'mol new "{abs_path}"')
             for sel in selections:
                 esc_for_comparison = _escape_tcl(sel['query'])
-                sel = sel['vmd_query'] if 'vmd_query' in sel else sel['query']
-                esc = _escape_tcl(sel)
+                vmd_sel = self._get_vmd_query(sel)
+                esc = _escape_tcl(vmd_sel)
                 tcl_lines.extend([
                     'try {',
-                    f'  set selobj [atomselect top "{esc}"]',
+                    f'  set selobj [atomselect top "{esc}" frame 0]',
                     f'  puts "COUNT {base}{delimiter}{esc_for_comparison}{delimiter}[$selobj num]"',
                     f'  puts -nonewline "INDICES {base}{delimiter}{esc_for_comparison}{delimiter}"',
                     '  puts [$selobj get index]',
@@ -205,42 +185,40 @@ class VMDBackend(BackendInterface):
             logger.error(f"VMD failed (rc={proc.returncode}): {proc.stderr.strip()}")
             raise RuntimeError(f"VMD failed (rc={proc.returncode}): {proc.stderr.strip()}")
 
-        counts: dict[tuple[str,str], float] = {}
-        indices: dict[tuple[str,str], list[int]] = {}
+        counts: dict[tuple[str, str], float] = {}
+        indices: dict[tuple[str, str], list[int]] = {}
         with open("vmd_output.txt", "w+") as f:
             for line in proc.stdout.splitlines():
-                # Write the stdout to a file
                 f.write(line + "\n")
                 if line.startswith('COUNT '):
                     _, rest = line.split('COUNT ', 1)
                     parts = rest.split(delimiter)
                     if len(parts) == 3:
-                        pdbfile, sel, num = parts
+                        pdbfile, sel_str, num = parts
                         try:
                             cnt = int(num)
                         except ValueError:
                             cnt = np.nan
-                        if (pdbfile, sel) in counts:
-                            f.write(f'REPEATED COUNTKEY: {(pdbfile, sel)}\n')
-                        counts[(pdbfile, sel)] = cnt
+                        if (pdbfile, sel_str) in counts:
+                            f.write(f'REPEATED COUNTKEY: {(pdbfile, sel_str)}\n')
+                        counts[(pdbfile, sel_str)] = cnt
                         
                 elif line.startswith('INDICES '):
                     _, rest = line.split('INDICES ', 1)
                     parts = rest.split(delimiter)
                     if len(parts) == 3:
-                        pdbfile, sel, idx_str = parts
+                        pdbfile, sel_str, idx_str = parts
                         idx_list = [int(i) for i in idx_str.strip().split() if i.isdigit()]
-                        if (pdbfile, sel) in indices:
-                            f.write(f'REPEATED INDICES KEY: {(pdbfile, sel)}\n')
-                        indices[(pdbfile, sel)] = idx_list
+                        if (pdbfile, sel_str) in indices:
+                            f.write(f'REPEATED INDICES KEY: {(pdbfile, sel_str)}\n')
+                        indices[(pdbfile, sel_str)] = idx_list
 
         
 
-            result: dict[tuple[str,str], tuple[int, list[int]]] = {}
+            result: dict[tuple[str, str], tuple[int, list[int]]] = {}
             for pdb in [os.path.basename(p) for p in pdb_paths]:
                 for sel in selections:
-                    sel = sel['query']
-                    key = (pdb, sel)
+                    key = (pdb, sel['query'])
                     cnt = counts.get(key, np.nan)
                     idx_list = indices.get(key, [])
                     result[key] = (cnt, idx_list)
