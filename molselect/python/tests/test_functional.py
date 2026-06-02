@@ -233,13 +233,20 @@ class ProDyBackend(BackendInterface):
     @staticmethod
     def _exec_dssp_legacy(pdb_path: str) -> str:
         """Run mkdssp with --output-format dssp to produce legacy format that ProDy can parse."""
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        dssp_cache_dir = os.path.join(project_root, 'molselect', 'data', 'tests')
+        basename = os.path.splitext(os.path.basename(pdb_path))[0]
+        cached = os.path.join(dssp_cache_dir, basename + '.dssp')
+        if os.path.exists(cached):
+            return cached
+
         from prody.utilities import which
         mkdssp = which('mkdssp') or which('dssp')
         if mkdssp is None:
             raise EnvironmentError('mkdssp/dssp executable not found')
         abs_pdb = os.path.abspath(pdb_path)
-        basename = os.path.splitext(os.path.basename(pdb_path))[0]
-        out = os.path.join('.', basename + '.dssp')
+        os.makedirs(dssp_cache_dir, exist_ok=True)
+        out = os.path.join(dssp_cache_dir, basename + '.dssp')
         status = os.system(f'{mkdssp} --output-format dssp {abs_pdb} > {out} 2>/dev/null')
         if status != 0:
             raise RuntimeError(f'mkdssp failed with status {status} for {abs_pdb}')
@@ -248,11 +255,11 @@ class ProDyBackend(BackendInterface):
     def count_atom_data(
         self,
         pdb_paths: list[str],
-        selections: list[str]
+        selections: list[dict[str, str]]
     ) -> dict[tuple[str, str], tuple[int, list[int]]]:
         from prody import parsePDB, parseDSSP
-        result_counts: dict[tuple[str,str], float] = {}
-        result_indices: dict[tuple[str,str], list[int]] = {}
+        result_counts: dict[tuple[str, str], float] = {}
+        result_indices: dict[tuple[str, str], list[int]] = {}
 
         for pdb in pdb_paths:
             basename = os.path.basename(pdb)
@@ -266,9 +273,9 @@ class ProDyBackend(BackendInterface):
 
                 for sel in selections:
                     key = (basename, sel['query'])
-                    sel = sel['prody_query'] if 'prody_query' in sel else sel['query']
+                    prody_sel = sel.get('prody_query', sel['query'])
                     try:
-                        atoms = structure.select(sel)
+                        atoms = structure.select(prody_sel)
                         if atoms is None:
                             cnt = 0
                             idx_list = []
@@ -284,19 +291,16 @@ class ProDyBackend(BackendInterface):
                 logger.warning(f"ProDy parse failed for {basename}: {e}")
                 for sel in selections:
                     key = (basename, sel['query'])
-                    sel = sel['prody_query'] if 'prody_query' in sel else sel['query']
                     result_counts[key] = np.nan
                     result_indices[key] = []
 
         for pdb in [os.path.basename(p) for p in pdb_paths]:
             for sel in selections:
-                sel = sel['query']
-                key = (pdb, sel)
+                key = (pdb, sel['query'])
                 result_counts.setdefault(key, np.nan)
                 result_indices.setdefault(key, [])
 
-        result = {k: (result_counts[k], result_indices[k]) for k in result_counts}
-        return result
+        return {k: (result_counts[k], result_indices[k]) for k in result_counts}
 
 
 class MolSceneBackend(BackendInterface):
