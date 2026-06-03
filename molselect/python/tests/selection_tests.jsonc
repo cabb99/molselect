@@ -63,7 +63,7 @@
     {"description": "NOT with !", "query": "!acidic", "prody_query": "not acidic", "vmd_query": "not (acidic or resname SEP TPO PTR PHD)", "note": "ProDy and VMD use not instead of !. VMD acidic excludes PTMs; override adds SEP/TPO/PTR/PHD."},
 
     // --- Numeric comparisons and ranges ---
-    {"description": "Numeric comparison", "query": "mass>12", "note": "VMD rounds mass to integer; MolSelect uses exact float mass"},
+    {"description": "Numeric comparison", "query": "mass>=12"},
     {"description": "Numeric comparison with AND", "query": "mass>12 and mass<17"},
     {"description": "Range selection", "query": "resid 10 to 20", "fallback_query": "label_seq_id 10 to 20", "note": "VMD uses label_seq_id on CIF files; fallback compares label_seq_id for CIF."},
     {"description": "Range selection with AND", "query": "resid 10 to 20 and backbone", "vmd_query": "resid 10 to 20 and (protein or same resname as protein) and backbone", "note": "MolSelect backbone = protein backbone only; VMD includes nucleic backbone"},
@@ -394,7 +394,7 @@
     {"description": "VMD: name 'A 1'", "query": "name 'A 1'"},
     {"description": "VMD: name 'A *'", "query": "name 'A *'", "prody_query": "name \"A .*\"", "note": "ProDy does not support VMD-style wildcard patterns; converted glob to regex"},
 //     {"description": "VMD: name \"C.*\"", "query": "name \"C.*\""},
-    {"description": "VMD: mass < 5", "query": "mass < 5", "note": "VMD rounds mass to integer; MolSelect uses exact float mass"},
+    {"description": "VMD: mass < 5", "query": "mass < 5"},
     {"description": "VMD: numbonds = 2", "query": "numbonds = 2", "prody_query": "SKIP", "note": "MolScene computes numbonds via compute_bonds(). ProDy has no numbonds selection keyword (SKIP); compared against VMD. Bond detection differs (see Computed-properties-plan.md §2)."},
     {"description": "VMD: abs(charge) > 1", "query": "abs(charge) > 1", "prody_query": "SKIP", "note": "ProDy does not load charge data from PDB files"},
     {"description": "VMD: x < 6 and x > 3", "query": "x < 6 and x > 3", "note": "VMD float precision may differ on boundary atoms"},
@@ -434,7 +434,8 @@
     {"description": "VMD keyword: y", "query": "y 10", "note": "Exact float match; few atoms will have exactly y=10.000"},
     {"description": "VMD keyword: z", "query": "z 10", "note": "Exact float match; few atoms will have exactly z=10.000"},
     {"description": "VMD keyword: radius", "query": "radius 1.5", "prody_query": "SKIP", "note": "ProDy does not have a radius selection keyword"},
-    {"description": "VMD keyword: mass", "query": "mass 12", "note": "VMD rounds mass to integer; MolSelect uses exact float mass"},
+    {"description": "VMD keyword: mass", "query": "mass 12", "prody_query": "SKIP", "note": "VMD stores integer masses so mass 12 matches C (12→12). ProDy stores exact floats (12.0107) so 12≠12.0107 → 0 atoms. MolSelect integer tolerance ±0.5 matches C correctly."},
+    {"description": "Float mass literal: 1dp tolerance (should match C atoms)", "query": "mass 12.0", "prody_query": "SKIP", "vmd_query": "mass 12", "note": "Float literal with 1 decimal place: ±0.05 tolerance matches C (12.011) since 12.011 ∈ [11.95, 12.05). ProDy uses exact float so skipped."},
     {"description": "VMD keyword: charge", "query": "charge -1", "prody_query": "SKIP", "vmd_query": "charge == -1", "note": "ProDy does not load charge data from PDB files; VMD needs explicit == -1 syntax for negative values"},
     {"description": "VMD keyword: beta", "query": "beta 10", "note": "Exact float match; VMD and ProDy both use exact equality for keyword value"},
     {"description": "VMD keyword: occupancy", "query": "occupancy 1", "note": "Exact float match; partial-occupancy atoms (altloc) have occupancy < 1"},
