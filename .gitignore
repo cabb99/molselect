@@ -64,6 +64,11 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+# Generated from molselect/data/*.json by docs/conf.py at build time — do not commit
+docs/keywords.rst
+docs/macros.rst
+# Sphinx autosummary output
+docs/autosummary/
 
 # PyBuilder
 target/
