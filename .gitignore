@@ -107,6 +107,9 @@ ENV/
 # VS Code
 .vscode/
 
+# Session history / working notes
+.history/
+
 # Backup folder for old temp/debug files
 _backup/
 
