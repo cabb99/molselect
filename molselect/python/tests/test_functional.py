@@ -410,6 +410,16 @@ class MolSceneBackend(BackendInterface):
         else:
             raise ValueError(f"Unsupported file format for {basename}")
         df = df.compute_mass()
+        # Populate optional computed columns when molscene supports them:
+        #   compute_phi_psi -> phi, psi
+        #   compute_bonds   -> numbonds, pfrag, nfrag
+        #   compute_anisou  -> ufx, ufy, ufz (ANISOU U-tensor diagonal)
+        # Each is wrapped so a failure degrades gracefully (column simply stays absent).
+        for _comp in ('compute_phi_psi', 'compute_bonds', 'compute_anisou'):
+            try:
+                df = getattr(df, _comp)()
+            except Exception as e:
+                logger.warning(f"{_comp} failed for {path}: {e}")
         try:
             df = df.compute_secondary_structure()
             df['secondary'] = df['secondary_structure'].fillna('C').replace({'.': 'C'})
