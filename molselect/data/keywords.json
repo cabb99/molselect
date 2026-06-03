@@ -261,8 +261,8 @@
         ],
         "example": "6"
       },
-      "bonds": {
-        "synonyms": ["numbonds"],
+      "numbonds": {
+        "synonyms": ["bonds"],
         "type": "int",
         "short": "Number of bonds this atom participates in.",
         "description": [
