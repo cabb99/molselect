@@ -1,0 +1,31 @@
+# Cleaned requirements for conda environment creation (no version constraints)
+biopython
+numpy
+pandas
+lark
+coverage
+pytest
+pytest-cov
+pluggy
+iniconfig
+colorama
+pygments
+python-dateutil
+python-tzdata
+pytz
+setuptools
+six
+toml
+tomli
+typing_extensions
+tzdata
+prody
+python
+mdtraj
+openmm
+mdanalysis
+# pymol  # Uncomment if available in your conda channels
+# molselect  # Install from PyPI after environment creation if needed
+
+
+
