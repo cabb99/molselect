@@ -300,9 +300,9 @@ class DataValue(Node):
 
 @dataclass
 class RangeValue(DataValue):
-    start: Union[Node]
-    end: Union[Node]
-    step: Union[Node, None] = None
+    start: Node
+    end: Node
+    step: Optional[Node] = None
     def evaluate(self, s: Structure):
         start = self.start.evaluate(s) if isinstance(self.start, Node) else self.start
         end = self.end.evaluate(s) if isinstance(self.end, Node) else self.end
