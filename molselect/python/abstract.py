@@ -574,8 +574,9 @@ class SequenceSelection(Node):
 
         # Fast path: if the backend provides get_sequence(), use it to avoid the Python loop.
         # get_sequence(sequence_map) returns dict: chain -> (sequence_str, residue_indices_list)
-        if hasattr(s, 'get_sequence'):
-            chain_sequences = s.get_sequence(SEQUENCE_MAP)
+        get_sequence = getattr(s, 'get_sequence', None)
+        if get_sequence is not None:
+            chain_sequences = get_sequence(SEQUENCE_MAP)
         else:
             chain_sequences = self._build_sequences(s)
 
