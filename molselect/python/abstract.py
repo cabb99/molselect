@@ -9,7 +9,7 @@ import numpy as np
 from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
 from typing_extensions import Protocol, runtime_checkable
-from molselect.python.protocols import Array, Structure, Mask
+from molselect.python.protocols import Array, Structure
 from molselect.python.errors import MolSelectEvaluationError
 
 import logging
@@ -151,12 +151,6 @@ class BinaryOp(Node):
         return f"{left} {self._symbol} {right}"
 
 
-class LogicNode(BinaryOp):
-    """Base class for logical nodes that can short-circuit evaluation."""
-    @property
-    def evaluate_global(self) -> Mask:
-        return getattr(self.left,  'evaluate_global', True) and getattr(self.right, 'evaluate_global', True)
-
 @dataclass
 class Start(Node):
     """Root node of the AST, contains the main expression."""
@@ -169,7 +163,7 @@ class Start(Node):
         return self.expr.symbolic()
 
 @dataclass
-class And(LogicNode):
+class And(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "and"
