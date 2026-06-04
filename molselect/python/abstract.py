@@ -99,7 +99,7 @@ _PREC_ATOM = 100
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
     short_circuit = True
-    _symbol: str = None       
+    _symbol: Optional[str] = None       
     _precedence = _PREC_ATOM  # binding strength for adding parens in symbolic rendering
 
     def evaluate(self, s: Structure) -> Any:
@@ -724,7 +724,7 @@ class Neg(Node):
 class Func(Node):
     name: str
     arg: Node
-    _symbol: str = None
+    _symbol: Optional[str] = None
     def evaluate(self, s):
         v = self.arg.evaluate(s)
         if self.name == 'sq':
@@ -755,7 +755,7 @@ class Func(Node):
 @dataclass
 class Number(Node):
     value: Union[int, float, str]
-    _symbol: str = None
+    _symbol: Optional[str] = None
     def evaluate(self, s):
         v = self.value
         if '.' in v or 'e' in v or 'E' in v:
@@ -767,7 +767,7 @@ class Number(Node):
 @dataclass
 class Const(Node):
     name: str
-    _symbol: str = None
+    _symbol: Optional[str] = None
     def evaluate(self, s):
         if self.name.lower() == 'pi':
             return math.pi
