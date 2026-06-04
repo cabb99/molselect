@@ -456,7 +456,7 @@ class PropertySelection(Node):
 @dataclass
 class Regex(Node):
     field: Node  # always a Node now
-    pattern: Node  # a RegexValue/StringValue node, evaluated to the pattern string
+    pattern: Node
     def evaluate(self, s: Structure) -> Array:
         col = self.field.evaluate(s)
         pattern = self.pattern.evaluate(s)
