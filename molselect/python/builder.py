@@ -120,8 +120,9 @@ class ASTBuilder(Transformer):
         mode = str(within_token).lower()
         return Within(dist, self._to_node(target_mask), mode=mode)
 
-    def bonded_selection(self, distance, selection):
-        return Bonded(distance, self._to_node(selection))
+    def bonded_selection(self, bonded_op, distance, selection):
+        mode = str(bonded_op).lower()
+        return Bonded(self._to_node(distance), self._to_node(selection), mode=mode)
 
     def same_selection(self, name, mask):
         name = self._to_node(name)

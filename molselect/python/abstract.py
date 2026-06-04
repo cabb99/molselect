@@ -530,13 +530,14 @@ class SelectionKeyword(Node):
 class Bonded(Node):
     distance: float
     selection: Node
+    mode: str = "bonded"  # "bonded" or "exbonded"
     short_circuit = False # Needs access to all points, so no short-circuiting
     def evaluate(self, s):
         raise NotImplementedError("Bonded selection not implemented.")
 
     _precedence = 0  # `... to <expr>` is greedy; must be wrapped as a logical operand
     def symbolic(self) -> str:
-        return f"bonded {self._sym(self.distance)} to {self.selection.symbolic()}"
+        return f"{self.mode} {self._sym(self.distance)} to {self.selection.symbolic()}"
 
 @dataclass
 class SequenceSelection(Node):

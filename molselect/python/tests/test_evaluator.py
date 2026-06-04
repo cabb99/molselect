@@ -113,6 +113,8 @@ def test_evaluator_cases(evaluator, description, sel, example_dataframe):
     "exwithin 4 of protein",
     "same resid as exwithin 4 of water",
     "sequence ALA",
+    "bonded 2 to name CA",
+    "exbonded 1.5 to resname ALA",
     # precedence / associativity / grouping stress cases
     "protein and water and name CA",          # left-assoc and chain
     "protein or water or name CA",            # left-assoc or chain
