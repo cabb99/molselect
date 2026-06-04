@@ -6,7 +6,7 @@ import sys
 import warnings
 from decimal import Decimal
 import numpy as np
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Any, Optional, Union
 from typing_extensions import Protocol, runtime_checkable
 from molselect.python.protocols import Array, Structure
@@ -134,8 +134,8 @@ class Node:
 
     def symbolic(self) -> str:
         try:
-            data_fields = [f for f in fields(self) if f.name != '_symbol']
-            parts = [self._sym(getattr(self, f.name)) for f in data_fields]
+            names = [n for n in getattr(self, '__dataclass_fields__', {}) if n != '_symbol']
+            parts = [self._sym(getattr(self, n)) for n in names]
             return f"{type(self).__name__}(" + ", ".join(parts) + ")"
         except Exception:
             return type(self).__name__
