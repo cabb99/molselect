@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from molselect.python import abstract
+from molselect.python.errors import MolSelectEvaluationError
 from molselect.python.backends.pandas import PandasStructure, PandasArray
 from molselect.python.backends.pure import PureArray, PureStructure
 from molselect.python.backends.biopython import BiopythonArray, BiopythonStructure
@@ -343,7 +344,7 @@ def test_func_number_const(structure, LiteralValue):
     assert math.isclose(node_const_pi.evaluate(s), math.pi)
     node_const_e = abstract.Const(name='e')
     assert math.isclose(node_const_e.evaluate(s), math.e)
-    with pytest.raises(ValueError):
+    with pytest.raises(MolSelectEvaluationError, match=r"Unknown constant 'unknown'"):
         abstract.Const(name='unknown').evaluate(s)
 
 
@@ -386,15 +387,16 @@ def test_func_domain_near_boundary_silent_clamp(structure, LiteralValue):
 def test_func_domain_far_out_produces_nan_and_warning(structure, LiteralValue):
     """Far-out-of-domain values produce NaN and a single consolidated RuntimeWarning."""
     s = structure
-    with pytest.warns(RuntimeWarning, match=r"arcsin.*outside domain"):
+    # The warning must name the offending sub-expression, e.g. ... in `arcsin(...)`
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*outside domain in `arcsin\("):
         r = abstract.Func(name='arcsin', arg=LiteralValue(50.0)).evaluate(s)
     assert math.isnan(r)
 
-    with pytest.warns(RuntimeWarning, match=r"sqrt.*outside domain"):
+    with pytest.warns(RuntimeWarning, match=r"sqrt.*outside domain in `sqrt\("):
         r = abstract.Func(name='sqrt', arg=LiteralValue(-5.0)).evaluate(s)
     assert math.isnan(r)
 
-    with pytest.warns(RuntimeWarning, match=r"log.*outside domain"):
+    with pytest.warns(RuntimeWarning, match=r"log.*outside domain in `log\("):
         r = abstract.Func(name='log', arg=LiteralValue(-1.0)).evaluate(s)
     assert math.isnan(r)
 
@@ -415,7 +417,7 @@ def test_func_domain_array_mixed_values(LiteralValue):
     s = PandasStructure(pd.DataFrame({'x': [0, 1, 2, 3]}))
     # arcsin: [-1, 1] valid, 1+1e-8 near-boundary (clamp), 50 far-out (NaN)
     vals = pd.Series([0.5, 1.0 + 1e-8, -1.0 - 1e-8, 50.0])
-    with pytest.warns(RuntimeWarning, match=r"arcsin.*1 of 4.*outside domain"):
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*1 of 4.*outside domain in `arcsin\("):
         result = abstract.Func(name='arcsin', arg=LiteralValue(vals)).evaluate(s)
     assert math.isclose(result.iloc[0], math.asin(0.5))
     assert math.isclose(result.iloc[1], math.pi / 2, rel_tol=1e-9)

@@ -10,6 +10,7 @@ from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
 from typing_extensions import Protocol, runtime_checkable
 from molselect.python.protocols import Array, Structure, Mask
+from molselect.python.errors import MolSelectEvaluationError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -91,40 +92,66 @@ def _sanitize_domain(name, v, tol=_DOMAIN_TOLERANCE):
     return result, n_far, n_total
 
 
+# Binding strength for addind parentheses in symbolic rendering: higher means tighter binding, fewer parentheses.
+_PREC_ATOM = 100
+
+
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
     short_circuit = True
-    _symbol: str = None   # subclasses can override
-    
+    _symbol: str = None       
+    _precedence = _PREC_ATOM  # binding strength for adding parens in symbolic rendering
+
     def evaluate(self, s: Structure) -> Any:
         raise NotImplementedError
-    
+
+    @staticmethod
+    def _sym(x: Any) -> str:
+        """Render *x* as selection syntax: a Node via ``symbolic()``, else ``str(x)``."""
+        return x.symbolic() if isinstance(x, Node) else str(x)
+
+    @staticmethod
+    def _operand(child: Any, parent_prec: int, is_right: bool) -> str:
+        """Render *child* of a binary op, adding parens only when precedence requires.
+
+        A child is wrapped when it binds looser than the parent, or binds equally
+        and sits on the right (since operators are left-associative).
+        """
+        inner = Node._sym(child)
+        if isinstance(child, Node):
+            cp = getattr(child, '_precedence', _PREC_ATOM)
+            if cp < parent_prec or (cp == parent_prec and is_right):
+                return f"({inner})"
+        return inner
+
+    @staticmethod
+    def _prefix(child: Any, parent_prec: int) -> str:
+        """Render the operand of a prefix op (not/neg), wrapping only if it binds looser."""
+        inner = Node._sym(child)
+        if isinstance(child, Node) and getattr(child, '_precedence', _PREC_ATOM) < parent_prec:
+            return f"({inner})"
+        return inner
+
     def symbolic(self) -> str:
-        # Exclude _symbol from field list for symbolic rendering
-        data_fields = [f for f in fields(self) if f.name != '_symbol']
-        # 1) If this node has a custom symbol and exactly two data fields, render infix
-        if self._symbol and len(data_fields) == 2:
-            left, right = (getattr(self, f.name) for f in data_fields)
-            return f"({left.symbolic()}) {self._symbol} ({right.symbolic()})"
+        try:
+            data_fields = [f for f in fields(self) if f.name != '_symbol']
+            parts = [self._sym(getattr(self, f.name)) for f in data_fields]
+            return f"{type(self).__name__}(" + ", ".join(parts) + ")"
+        except Exception:
+            return type(self).__name__
 
-        # 2) If it’s a 1-arg prefix operator
-        if self._symbol and len(data_fields) == 1:
-            (inner,) = (getattr(self, f.name) for f in data_fields)
-            return f"{self._symbol}({inner.symbolic()})"
-        # 3) Fallback: list out all dataclass fields by name (excluding _symbol)
-        parts = []
-        for f in data_fields:
-            v = getattr(self, f.name)
-            if isinstance(v, Node):
-                parts.append(v.symbolic())
-            elif isinstance(v, list):
-                parts.append("[" + ", ".join(x.symbolic() if isinstance(x, Node) else repr(x) for x in v) + "]")
-            else:
-                parts.append(repr(v))
-        name = type(self).__name__
-        return f"{name}(" + ", ".join(parts) + ")"
+class BinaryOp(Node):
+    """Infix binary operator: renders as ``left <symbol> right``, parenthesizing
+    operands only where precedence/associativity require it."""
+    left: Node
+    right: Node
+    def symbolic(self) -> str:
+        left = self._operand(self.left, self._precedence, is_right=False)
+        right = self._operand(self.right, self._precedence, is_right=True)
+        return f"{left} {self._symbol} {right}"
 
-class LogicNode(Node):
+
+class LogicNode(BinaryOp):
     """Base class for logical nodes that can short-circuit evaluation."""
     @property
     def evaluate_global(self) -> Mask:
@@ -138,12 +165,15 @@ class Start(Node):
         """Evaluate the main expression and return a boolean mask."""
         selection = self.expr.evaluate(s)
         return s.select(selection)
+    def symbolic(self) -> str:
+        return self.expr.symbolic()
 
 @dataclass
 class And(LogicNode):
     left: Node
     right: Node
-    _symbol: str = "&"
+    _symbol: str = "and"
+    _precedence = 3
     def evaluate(self, s: Structure) -> Array:
         left_mask = self.left.evaluate(s)
         # Short-circuit: if nothing matches left, return all False
@@ -161,10 +191,11 @@ class And(LogicNode):
             return left_mask & self.right.evaluate(s) 
 
 @dataclass
-class Or(Node):
+class Or(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "|"
+    _symbol: str = "or"
+    _precedence = 1
     def evaluate(self, s: Structure) -> Array:
         left_mask = self.left.evaluate(s)
         # Short-circuit: if everything matches left, return all True
@@ -181,10 +212,11 @@ class Or(Node):
 
 
 @dataclass
-class Xor(Node):
+class Xor(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "^"
+    _symbol: str = "xor"
+    _precedence = 2
 
     def evaluate(self, s: Structure) -> Array:
         return self.left.evaluate(s) ^ self.right.evaluate(s)
@@ -193,18 +225,25 @@ class Xor(Node):
 class Not(Node):
     expr: Node
     _symbol: str = "~"
+    _precedence = 4
     def evaluate(self, s: Structure) -> Array:
         return ~self.expr.evaluate(s)
+    def symbolic(self) -> str:
+        return f"not {self._prefix(self.expr, self._precedence)}"
     
 @dataclass
 class All(Node):
     def evaluate(self, s):
         return s.array_filled(True)
+    def symbolic(self) -> str:
+        return "all"
 
 @dataclass
 class None_(Node):
     def evaluate(self, s):
         return s.array_filled(False)
+    def symbolic(self) -> str:
+        return "none"
 
 # Selections
 @dataclass
@@ -247,10 +286,11 @@ class Comparison(Node):
             return s.array_filled(False)
 
     def symbolic(self) -> str:
-        # Custom symbolic for Comparison: always show as infix
-        left = self.field.symbolic() if isinstance(self.field, Node) else repr(self.field)
-        right = self.value.symbolic() if isinstance(self.value, Node) else repr(self.value)
-        return f"({left}) {self.op} ({right})"
+        # A comparison's operands are complete math expressions / atoms, so they
+        # never need parentheses. A None value means "truthiness of field" only.
+        if self.value is None:
+            return self._sym(self.field)
+        return f"{self._sym(self.field)} {self.op} {self._sym(self.value)}"
 
 ## Data Values
 class DataValue(Node):
@@ -268,6 +308,10 @@ class RangeValue(DataValue):
         end = self.end.evaluate(s) if isinstance(self.end, Node) else self.end
         step = self.step.evaluate(s) if isinstance(self.step, Node) else self.step
         return start, end, step
+    def symbolic(self) -> str:
+        if self.step is None:
+            return f"{self._sym(self.start)} to {self._sym(self.end)}"
+        return f"{self._sym(self.start)}:{self._sym(self.end)}:{self._sym(self.step)}"
 
    
 @dataclass
@@ -276,20 +320,26 @@ class StringValue(DataValue):
     value: str
     def evaluate(self, s: Structure) -> str:
         return self.value
-    
+    def symbolic(self) -> str:
+        return self.value
+
 @dataclass
 class QuotedStringValue(DataValue):
     """Represents a quoted string value in the AST."""
     value: str
     def evaluate(self, s: Structure) -> str:
         return self.value[1:-1]  # Remove quotes
-    
+    def symbolic(self) -> str:
+        return self.value  # already includes the surrounding quotes
+
 @dataclass
 class RegexValue(DataValue):
     """Represents a regex value in the AST."""
     value: str
     def evaluate(self, s: Structure) -> str:
         return self.value
+    def symbolic(self) -> str:
+        return f'"{self.value}"'  # value is stored without the quotes; re-wrap
 
 def numeric_tolerance_from_literal(text: str) -> float:
     """Return half-unit tolerance implied by the decimal precision of a numeric literal.
@@ -398,6 +448,10 @@ class PropertySelection(Node):
                     mask |= (col == val)
         return mask
 
+    def symbolic(self) -> str:
+        values = " ".join(self._sym(v) for v in self.values)
+        return f"{self.field.symbolic()} {values}"
+
 
 @dataclass
 class Regex(Node):
@@ -414,6 +468,9 @@ class Regex(Node):
         regex = re.compile(pattern)
         found = s.array_values([bool(regex.fullmatch(str(x))) for x in col])
         return found
+
+    def symbolic(self) -> str:
+        return f"{self.field.symbolic()} =~ {self._sym(self.pattern)}"
 
 
 @dataclass
@@ -434,6 +491,12 @@ class Within(Node):
             result[mask] = False
         return s.array_values(result)
 
+    # `... of <expr>` is greedy to the end of the expression, so a Within binds
+    # looser than any logical operator and must be wrapped when used as an operand.
+    _precedence = 0
+    def symbolic(self) -> str:
+        return f"{self.mode} {self._sym(self.distance)} of {self.target_mask.symbolic()}"
+
 @dataclass
 class Same(Node):
     field: Node  # always a Node now
@@ -444,6 +507,10 @@ class Same(Node):
         mask = self.mask.evaluate(s)
         return col.isin(col[mask])
 
+    _precedence = 0  # `... as <expr>` is greedy; must be wrapped as a logical operand
+    def symbolic(self) -> str:
+        return f"same {self.field.symbolic()} as {self.mask.symbolic()}"
+
 @dataclass
 class SelectionKeyword(Node):
     name: str
@@ -452,8 +519,12 @@ class SelectionKeyword(Node):
             # Return a flat array of the index, not a nested list
             return s.get_property('index')
         if self.name not in s.columns:
-            raise ValueError(f"Column '{self.name}' not found in Structure.")
+            raise MolSelectEvaluationError(
+                f"Column '{self.name}' not found in structure", node=self, backend=s)
         return s.get_property(self.name)
+
+    def symbolic(self) -> str:
+        return self.name
 
 @dataclass
 class Bonded(Node):
@@ -462,6 +533,10 @@ class Bonded(Node):
     short_circuit = False # Needs access to all points, so no short-circuiting
     def evaluate(self, s):
         raise NotImplementedError("Bonded selection not implemented.")
+
+    _precedence = 0  # `... to <expr>` is greedy; must be wrapped as a logical operand
+    def symbolic(self) -> str:
+        return f"bonded {self._sym(self.distance)} to {self.selection.symbolic()}"
 
 @dataclass
 class SequenceSelection(Node):
@@ -521,6 +596,9 @@ class SequenceSelection(Node):
 
         return residue_arr.isin(list(matched_residues))
 
+    def symbolic(self) -> str:
+        return f"sequence {self._sym(self.query)}"
+
     @staticmethod
     def _build_sequences(s: Structure) -> dict:
         """Generic fallback: build per-chain 1-letter sequences by iterating atoms.
@@ -569,58 +647,65 @@ class SequenceSelection(Node):
 
 # Mathematical Operations
 @dataclass
-class Add(Node):
+class Add(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "+"
+    _precedence = 5
     def evaluate(self, s):
         return self.left.evaluate(s) + self.right.evaluate(s)
 
 @dataclass
-class Sub(Node):
+class Sub(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "-"
+    _precedence = 5
     def evaluate(self, s):
         return self.left.evaluate(s) - self.right.evaluate(s)
 
 @dataclass
-class Mul(Node):
+class Mul(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "*"
+    _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) * self.right.evaluate(s)
 
 @dataclass
-class Div(Node):
+class Div(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "/"
+    _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) / self.right.evaluate(s)
 
 @dataclass
-class FloorDiv(Node):
+class FloorDiv(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "//"
+    _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) // self.right.evaluate(s)
 
 @dataclass
-class Mod(Node):
+class Mod(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "%"
+    _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) % self.right.evaluate(s)
 
 @dataclass
-class Pow(Node):
+class Pow(BinaryOp):
     left: Node
     right: Node
     _symbol: str = "**"
+    _precedence = 7
     def evaluate(self, s):
         return self.left.evaluate(s) ** self.right.evaluate(s)
 
@@ -628,8 +713,11 @@ class Pow(Node):
 class Neg(Node):
     value: Node
     _symbol: str = "-"
+    _precedence = 8
     def evaluate(self, s):
         return -self.value.evaluate(s)
+    def symbolic(self) -> str:
+        return f"-{self._prefix(self.value, self._precedence)}"
 
 @dataclass
 class Func(Node):
@@ -644,13 +732,24 @@ class Func(Node):
             return np.abs(v)
         v, n_far, n_total = _sanitize_domain(self.name, v)
         if n_far > 0:
+            # Render the offending sub-expression so the user can pinpoint the
+            # failing part of the selection. Keep this purely diagnostic: never
+            # let a symbolic-rendering failure break evaluation.
+            try:
+                where = f" in `{self.symbolic()}`"
+            except Exception:
+                where = ""
             warnings.warn(
-                f"molselect: {self.name}(): {n_far} of {n_total} values outside domain, returned as NaN",
+                f"molselect: {self.name}(): {n_far} of {n_total} values outside domain"
+                f"{where}, returned as NaN",
                 RuntimeWarning,
                 stacklevel=2,
             )
         with np.errstate(invalid='ignore', divide='ignore'):
             return getattr(np, self.name)(v)
+
+    def symbolic(self) -> str:
+        return f"{self.name}({self._sym(self.arg)})"
 
 @dataclass
 class Number(Node):
@@ -661,6 +760,8 @@ class Number(Node):
         if '.' in v or 'e' in v or 'E' in v:
             return float(v)
         return int(v)
+    def symbolic(self) -> str:
+        return str(self.value)
 
 @dataclass
 class Const(Node):
@@ -672,5 +773,7 @@ class Const(Node):
         elif self.name.lower() == 'e':
             return math.e
         else:
-            raise ValueError(f"Unknown constant: {self.name}")
+            raise MolSelectEvaluationError(f"Unknown constant '{self.name}'", node=self)
+    def symbolic(self) -> str:
+        return self.name
 

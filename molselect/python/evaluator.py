@@ -2,6 +2,7 @@ import logging
 from molselect.python.builder import ASTBuilder
 from molselect.python.abstract import Node
 from molselect.python.parser import SelectionParser
+from molselect.python.errors import MolSelectError, MolSelectEvaluationError
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -18,9 +19,16 @@ class Evaluator:
         self.builder = builder or ASTBuilder(self.parser)
 
     def evaluate(self, root: Node, structure=None):
-        if structure is not None:
+        if structure is None:
+            raise ValueError("Backend instance must be provided for evaluation or use the parse() method.")
+        try:
             return root.evaluate(structure)
-        raise ValueError("Backend instance must be provided for evaluation or use the parse() method.")
+        except MolSelectError:
+            # Already localized (e.g. a specific node named the failing column).
+            raise
+        except Exception as e:
+            # Unexpected failure: attach the offending selection for context.
+            raise MolSelectEvaluationError(str(e), node=root, backend=structure) from e
 
     def symbolic(self, root: Node) -> str:
         return root.symbolic()

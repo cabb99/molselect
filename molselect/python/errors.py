@@ -89,13 +89,26 @@ class MolSelectEvaluationError(MolSelectError):
     ):
         self.node = node
         self.backend = backend
+        parts = [message]
+        # Point at the failing part of the selection via the node's rendering.
+        # Purely diagnostic — never let a rendering failure mask the real error.
+        expr = None
+        if node is not None:
+            try:
+                expr = node.symbolic()
+            except Exception:
+                expr = None
+        if expr:
+            parts.append(f"in `{expr}`")
         ctx = []
         if node is not None:
             ctx.append(f"node={type(node).__name__}")
         if backend is not None:
             ctx.append(f"backend={backend.__class__.__name__}")
-        ctx_str = " ".join(ctx)
-        super().__init__(f"Evaluation error{' (' + ctx_str + ')' if ctx_str else ''}: {message}")
+        msg = " — ".join(parts)
+        if ctx:
+            msg += f" ({' '.join(ctx)})"
+        super().__init__(f"Evaluation error: {msg}")
 
 
 class MolSelectConfigError(MolSelectError):
