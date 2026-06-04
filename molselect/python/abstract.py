@@ -754,7 +754,7 @@ class Func(Node):
 
 @dataclass
 class Number(Node):
-    value: Union[int, float, str]
+    value: str
     _symbol: Optional[str] = None
     def evaluate(self, s):
         v = self.value
