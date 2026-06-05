@@ -99,7 +99,6 @@ _PREC_ATOM = 100
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
     short_circuit = True
-    _symbol: Optional[str] = None
     _precedence = _PREC_ATOM  # binding strength for adding parens in symbolic rendering
 
     def evaluate(self, s: Structure) -> Any:
@@ -134,7 +133,7 @@ class Node:
 
     def symbolic(self) -> str:
         try:
-            names = [n for n in getattr(self, '__dataclass_fields__', {}) if n != '_symbol']
+            names = list(getattr(self, '__dataclass_fields__', {}))
             parts = [self._sym(getattr(self, n)) for n in names]
             return f"{type(self).__name__}(" + ", ".join(parts) + ")"
         except Exception:
@@ -145,6 +144,7 @@ class BinaryOp(Node):
     operands only where precedence/associativity require it."""
     left: Node
     right: Node
+    _symbol: str
     def symbolic(self) -> str:
         left = self._operand(self.left, self._precedence, is_right=False)
         right = self._operand(self.right, self._precedence, is_right=True)
@@ -218,7 +218,6 @@ class Xor(BinaryOp):
 @dataclass
 class Not(Node):
     expr: Node
-    _symbol = "~"
     _precedence = 4
     def evaluate(self, s: Structure) -> Array:
         return ~self.expr.evaluate(s)
@@ -708,7 +707,6 @@ class Pow(BinaryOp):
 @dataclass
 class Neg(Node):
     value: Node
-    _symbol = "-"
     _precedence = 8
     def evaluate(self, s):
         return -self.value.evaluate(s)
@@ -719,7 +717,6 @@ class Neg(Node):
 class Func(Node):
     name: str
     arg: Node
-    _symbol = None
     def evaluate(self, s):
         v = self.arg.evaluate(s)
         if self.name == 'sq':
@@ -750,7 +747,6 @@ class Func(Node):
 @dataclass
 class Number(Node):
     value: str
-    _symbol = None
     def evaluate(self, s):
         v = self.value
         if '.' in v or 'e' in v or 'E' in v:
@@ -762,7 +758,6 @@ class Number(Node):
 @dataclass
 class Const(Node):
     name: str
-    _symbol = None
     def evaluate(self, s):
         if self.name.lower() == 'pi':
             return math.pi
