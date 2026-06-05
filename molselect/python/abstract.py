@@ -99,7 +99,7 @@ _PREC_ATOM = 100
 class Node:
     """Base AST node; subclasses implement eager and symbolic evaluation."""
     short_circuit = True
-    _symbol: Optional[str] = None       
+    _symbol: Optional[str] = None
     _precedence = _PREC_ATOM  # binding strength for adding parens in symbolic rendering
 
     def evaluate(self, s: Structure) -> Any:
@@ -166,7 +166,7 @@ class Start(Node):
 class And(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "and"
+    _symbol = "and"
     _precedence = 3
     def evaluate(self, s: Structure) -> Array:
         left_mask = self.left.evaluate(s)
@@ -188,7 +188,7 @@ class And(BinaryOp):
 class Or(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "or"
+    _symbol = "or"
     _precedence = 1
     def evaluate(self, s: Structure) -> Array:
         left_mask = self.left.evaluate(s)
@@ -209,7 +209,7 @@ class Or(BinaryOp):
 class Xor(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "xor"
+    _symbol = "xor"
     _precedence = 2
 
     def evaluate(self, s: Structure) -> Array:
@@ -218,7 +218,7 @@ class Xor(BinaryOp):
 @dataclass
 class Not(Node):
     expr: Node
-    _symbol: str = "~"
+    _symbol = "~"
     _precedence = 4
     def evaluate(self, s: Structure) -> Array:
         return ~self.expr.evaluate(s)
@@ -646,7 +646,7 @@ class SequenceSelection(Node):
 class Add(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "+"
+    _symbol = "+"
     _precedence = 5
     def evaluate(self, s):
         return self.left.evaluate(s) + self.right.evaluate(s)
@@ -655,7 +655,7 @@ class Add(BinaryOp):
 class Sub(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "-"
+    _symbol = "-"
     _precedence = 5
     def evaluate(self, s):
         return self.left.evaluate(s) - self.right.evaluate(s)
@@ -664,7 +664,7 @@ class Sub(BinaryOp):
 class Mul(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "*"
+    _symbol = "*"
     _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) * self.right.evaluate(s)
@@ -673,7 +673,7 @@ class Mul(BinaryOp):
 class Div(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "/"
+    _symbol = "/"
     _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) / self.right.evaluate(s)
@@ -682,7 +682,7 @@ class Div(BinaryOp):
 class FloorDiv(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "//"
+    _symbol = "//"
     _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) // self.right.evaluate(s)
@@ -691,7 +691,7 @@ class FloorDiv(BinaryOp):
 class Mod(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "%"
+    _symbol = "%"
     _precedence = 6
     def evaluate(self, s):
         return self.left.evaluate(s) % self.right.evaluate(s)
@@ -700,7 +700,7 @@ class Mod(BinaryOp):
 class Pow(BinaryOp):
     left: Node
     right: Node
-    _symbol: str = "**"
+    _symbol = "**"
     _precedence = 7
     def evaluate(self, s):
         return self.left.evaluate(s) ** self.right.evaluate(s)
@@ -708,7 +708,7 @@ class Pow(BinaryOp):
 @dataclass
 class Neg(Node):
     value: Node
-    _symbol: str = "-"
+    _symbol = "-"
     _precedence = 8
     def evaluate(self, s):
         return -self.value.evaluate(s)
@@ -719,7 +719,7 @@ class Neg(Node):
 class Func(Node):
     name: str
     arg: Node
-    _symbol: Optional[str] = None
+    _symbol = None
     def evaluate(self, s):
         v = self.arg.evaluate(s)
         if self.name == 'sq':
@@ -750,7 +750,7 @@ class Func(Node):
 @dataclass
 class Number(Node):
     value: str
-    _symbol: Optional[str] = None
+    _symbol = None
     def evaluate(self, s):
         v = self.value
         if '.' in v or 'e' in v or 'E' in v:
@@ -762,7 +762,7 @@ class Number(Node):
 @dataclass
 class Const(Node):
     name: str
-    _symbol: Optional[str] = None
+    _symbol = None
     def evaluate(self, s):
         if self.name.lower() == 'pi':
             return math.pi
