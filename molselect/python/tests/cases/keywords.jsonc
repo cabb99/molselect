@@ -1,0 +1,61 @@
+// ===========================================================================
+// Grammar area: ATOM-FIELD KEYWORDS  (GENERATED — every keyword in
+// keywords.json is enumerated by case_gen.generate_keyword_cases, with each
+// synonym checked for MolSelect-internal equivalence to its canonical keyword.)
+//
+// The generator picks a default probe `<kw> <example>` and applies two
+// divergence classes automatically:
+//   * MolSelect-computed keywords (phi/psi/numbonds/pfrag/nfrag) -> both refs
+//     excused (no VMD/ProDy selection keyword).
+//   * keywords not populated from PDB/CIF or deferred past 0.1
+//     (velocities/forces/ANISOU/fragment/type/frame) -> excused everywhere.
+//
+// Only keywords needing a better probe value or a real divergence appear below.
+// ===========================================================================
+{
+  "generate": "keywords",
+  "exceptions": {
+    "resid":   {"query": "resid 4",
+                "xfail": {"*.cif": {"vmd": "VMD resid uses label_seq_id on CIF; MolSelect/ProDy use auth_seq_id"}}},
+    "residue": {"query": "residue 0", "prody_query": "resindex 0",
+                "note": "ProDy spells the 0-based residue index `resindex`."},
+    "element": {"query": "element C",
+                "xfail": {"4x5p.cif": "MolSelect mislabels 1 atom's element on 4x5p (upstream molscene CIF bug)"}},
+    "atomicnumber": {"query": "atomicnumber 6", "prody_query": "element C",
+                     "note": "ProDy has no atomicnumber keyword; element is equivalent."},
+
+    "x":    {"query": "x < 0"},
+    "y":    {"query": "y < 0"},
+    "z":    {"query": "z < 0"},
+    "beta": {"query": "beta > 10"},
+    "mass": {"query": "mass < 5"},
+    "occupancy": {"query": "occupancy 1.0"},
+
+    "charge": {"query": "charge 0",
+               "xfail": {"*": {"prody": "ProDy does not load charge data from PDB files"}}},
+    "radius": {"query": "radius 1.7",
+               "xfail": {"*": {"prody": "ProDy has no radius selection keyword"}}},
+
+    "altloc": {"query": "altloc A",
+               "xfail": {"*.cif": {"vmd": "VMD altloc handling on CIF differs from MolSelect/ProDy"}}},
+    "icode":  {"query": "icode _",
+               "xfail": {"*": {"vmd": "VMD has no icode keyword"}},
+               "note": "`_` matches the blank insertion code (the common case)."},
+    "segment": {"query": "segment _",
+                "xfail": {"*": {"vmd": "VMD has no `segment` keyword; `segname _` does not match the blank segment"}},
+                "note": "`_` matches the blank segment (MolSelect == ProDy)."},
+
+    "secondary": {"query": "secondary H", "prody_query": "secstr H",
+                  "xfail": {"*": {"vmd": "VMD `structure` is STRIDE-based; MolSelect/ProDy use DSSP"},
+                            "1atp.cif": {"prody": "DSSP chain mapping (auth vs label) differs on CIF"},
+                            "1zbl.cif": {"prody": "DSSP chain mapping (auth vs label) differs on CIF"},
+                            "3ay6.cif": {"prody": "DSSP chain mapping (auth vs label) differs on CIF"}}},
+
+    "phi":      {"query": "phi < 0"},
+    "psi":      {"query": "psi < 0"},
+    "numbonds": {"query": "numbonds 2",
+                 "xfail": {"*": {"prody": "ProDy has no numbonds selection keyword",
+                                 "vmd": "MolSelect and VMD bond detection differ"}}}
+  },
+  "extra": []
+}

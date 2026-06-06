@@ -504,7 +504,7 @@
         "synonyms": [],
         "short": "all amino acids",
         "description": "All standard and non-standard amino acids (must have a CA atom). See: :term:`stdaa`, :term:`nonstdaa`.",
-        "definition": "_stdaa or _nonstdaa"
+        "definition": "stdaa or nonstdaa"
       },
       "prody_nucleic": {
         "name": "prody_nucleic",

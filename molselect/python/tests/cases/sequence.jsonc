@@ -1,0 +1,31 @@
+// ===========================================================================
+// Grammar area: SEQUENCE
+//   `sequence <literal>` and `sequence <regex>` one-letter matching, plus
+//   sequence combined with an atom-name filter.
+//
+// Divergence owned by this file (captured once):
+//   - 1r70 is a CA-trace VMD reads as all-HETATM, so VMD finds no protein
+//     sequence there -> xfail vmd on 1r70.*.
+// ===========================================================================
+[
+    {"description": "sequence: literal MIEIK", "query": "sequence MIEIK",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}}},
+    {"description": "sequence: literal VLNAL", "query": "sequence VLNAL",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}}},
+    {"description": "sequence: literal FKPY", "query": "sequence FKPY",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}}},
+    {"description": "sequence: literal APD", "query": "sequence APD",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}}},
+    {"description": "sequence: regex motif", "query": "sequence \"MI.*DKQ\"",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}}},
+    {"description": "sequence: combined with atom-name filter", "query": "name CA sequence \"MI.*DKQ\"",
+     "vmd_query": "name CA and sequence \"MI.*DKQ\"",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; sequence is empty"}},
+     "note": "VMD requires explicit `and` between an atom-name filter and `sequence`."}
+]
