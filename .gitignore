@@ -173,5 +173,9 @@ molselect/python/tests/atom_counts_backup.csv
 
 # In-tree generated files
 */_version.py
+# Retired code kept on disk for reference, not tracked
+/archive/
+# Auto-generated compatibility index (run docs/gen_compatibility.py)
+docs/compatibility_index.md
 # Cookiecutter-CMS Test Artifacts
 /tests/CI_files
