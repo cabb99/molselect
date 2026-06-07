@@ -1,0 +1,37 @@
+// ===========================================================================
+// Grammar area: SPATIAL / SET selections
+//   within / exwithin, same <field> as, and nesting. Reference targets
+//   (index 0, name FE, resname SAH) are engine-agnostic.
+//
+// Divergences owned by this file (captured once):
+//   - water-based distance on 1r70: VMD reads the CA-trace 1r70 as all-HETATM
+//     so `water` is empty there  -> xfail vmd on 1r70.*.
+//   - `same <field> as`: ProDy supports only chain/residue/segment/fragment;
+//     name/resname are MolSelect/VMD extensions  -> xfail prody.
+// ===========================================================================
+[
+    {"description": "within: of an atom name", "query": "within 5 of name FE"},
+    {"description": "within: of a compound target", "query": "within 5 of (name CA or name CB)"},
+    {"description": "within: of an index", "query": "within 10 of index 0"},
+    {"description": "exwithin: excludes the reference set", "query": "exwithin 100 of index 0"},
+    {"description": "within: noh combined with a resname set", "query": "noh within 5 of (resname ALA or resname GLY)"},
+    {"description": "exwithin: of a resname", "query": "exwithin 4 of resname SAH"},
+
+    {"description": "within: of water", "query": "within 5 of water",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; water is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; water is empty"}}},
+    {"description": "exwithin: of water", "query": "exwithin 3 of water",
+     "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; water is empty"},
+               "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; water is empty"}}},
+
+    {"description": "within: nested within", "query": "within 5 of within 5 of index 0"},
+    {"description": "within: nested same-residue", "query": "same residue as within 4 of resname SAH"},
+
+    {"description": "same: residue as index", "query": "same residue as index 0"},
+    {"description": "same: chain as a chain", "query": "same chain as chain C"},
+    {"description": "same: residue as resname list", "query": "same residue as resname DG ALA"},
+    {"description": "same: idempotent triple", "query": "same residue as same residue as same residue as index 0"},
+    {"description": "same: resname as (ProDy lacks same-resname)",
+     "query": "same resname as (noh within 5 of nucleic)",
+     "xfail": {"*": {"prody": "ProDy `same as` supports only chain/residue/segment/fragment"}}}
+]

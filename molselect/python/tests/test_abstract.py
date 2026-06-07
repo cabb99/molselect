@@ -1,0 +1,556 @@
+import pytest
+import math
+import warnings
+import numpy as np
+import pandas as pd
+from molselect.python import abstract
+from molselect.python.errors import MolSelectEvaluationError
+from molselect.python.backends.pandas import PandasStructure, PandasArray
+from molselect.python.backends.pure import PureArray, PureStructure
+from molselect.python.backends.biopython import BiopythonArray, BiopythonStructure
+
+@pytest.fixture(params=["pure", "pandas", "biopython"])
+def structure(request):
+    df = {
+        'a': [1, 2, 3, 4],
+        'b': [4, 3, 2, 1],
+        'x': [0.0, 1.0, 0.0, 1.0],
+        'y': [0.0, 0.0, 1.0, 1.0],
+        'z': [0.0, 0.0, 0.0, 0.0],
+        's': ['foo', 'bar', 'foo', 'baz'],
+    }
+    if request.param == "pure":
+        return PureStructure(df)
+    elif request.param == "biopython":
+        # Create a mock Biopython Structure for testing
+        from Bio.PDB import Structure, Model, Chain, Residue, Atom
+        struct = Structure.Structure("test")
+        model = Model.Model(0)
+        chain = Chain.Chain("A")
+        for i in range(4):
+            res = Residue.Residue((" ", i+1, " "), "GLY", " ")
+            atom = Atom.Atom("CA", [df['x'][i], df['y'][i], df['z'][i]], 1.0, 1.0, " ", "CA", i, "C")  # serial number = i
+            # Add extra test fields as attributes for extraction
+            atom.a = df['a'][i]
+            atom.b = df['b'][i]
+            atom.s = df['s'][i]
+            res.add(atom)
+            chain.add(res)
+        model.add(chain)
+        struct.add(model)
+        return BiopythonStructure(struct)
+    else:
+        return PandasStructure(pd.DataFrame(df))
+
+@pytest.fixture
+def LiteralMask(request, structure):
+    if isinstance(structure, PandasStructure):
+        class _LiteralMask(abstract.Node):
+            def __init__(self, mask):
+                self.mask = mask
+            def evaluate(self, s):
+                return PandasArray(self.mask, index=s.index)
+        return _LiteralMask
+    elif isinstance(structure, BiopythonStructure):
+        class _LiteralMask(abstract.Node):
+            def __init__(self, mask):
+                self.mask = mask
+            def evaluate(self, s):
+                return BiopythonArray(self.mask, index=s.index)
+        return _LiteralMask
+    else:
+        class _LiteralMask(abstract.Node):
+            def __init__(self, mask):
+                self.mask = mask
+            def evaluate(self, s):
+                return PureArray([d for i,d in zip(self.mask.index,self.mask.data) if i in s.index], index=s.index)
+        return _LiteralMask
+
+@pytest.fixture
+def Field():
+    class _Field(abstract.Node):
+        def __init__(self, name):
+            self.name = name
+        def evaluate(self, s):
+            return s.get_property(self.name)
+    return _Field
+
+@pytest.fixture
+def LiteralValue():
+    class _LiteralValue(abstract.Node):
+        def __init__(self, value):
+            self.value = value
+        def evaluate(self, s):
+            return self.value
+    return _LiteralValue
+
+@pytest.fixture
+def array_type(structure):
+    if isinstance(structure, PandasStructure):
+        return PandasArray
+    elif isinstance(structure, BiopythonStructure):
+        return BiopythonArray
+    else:
+        return PureArray
+
+# 1. Logical nodes
+def test_logical_nodes(structure, LiteralMask, array_type):
+    s = structure
+    # Test several mask scenarios
+    mask_cases = [
+        ([True, False, True, False], [False, True, True, False]),
+        ([True, True, True, True], [False, False, False, False]),
+        ([False, False, False, False], [True, True, True, True]),
+        ([False, False, False, False], [False, False, False, False]),
+        ([True, True, False, False], [False, True, True, False]),
+    ]
+    for mask1_vals, mask2_vals in mask_cases:
+        mask1 = array_type(mask1_vals, index=s.index)
+        mask2 = array_type(mask2_vals, index=s.index)
+        result_and = abstract.And(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_or = abstract.Or(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_xor = abstract.Xor(LiteralMask(mask1), LiteralMask(mask2)).evaluate(s)
+        result_not = abstract.Not(LiteralMask(mask1)).evaluate(s)
+        # Use numpy for expected logic
+        mask1_np = np.array(mask1_vals)
+        mask2_np = np.array(mask2_vals)
+        expected_and = mask1_np & mask2_np
+        expected_xor = mask1_np ^ mask2_np
+        expected_not = ~mask1_np
+        # AST short-circuit logic for OR
+        expected_or = np.ones_like(mask1_np, dtype=bool)
+        expected_or[~mask1_np] = mask2_np[~mask1_np]
+        # Get result arrays
+        def get_arr(x):
+            if hasattr(x, 'data'):
+                return np.array(x.data)
+            elif hasattr(x, 'values'):
+                return np.array(x.values)
+            else:
+                return np.array(x)
+        assert np.all(get_arr(result_and) == expected_and)
+        assert np.all(get_arr(result_or) == expected_or)
+        assert np.all(get_arr(result_xor) == expected_xor)
+        assert np.all(get_arr(result_not) == expected_not)
+    assert abstract.All().evaluate(s).all()
+    assert not abstract.None_().evaluate(s).any()
+
+# 2. Selections
+def test_comparison(structure, Field):
+    s = structure
+    node = abstract.Comparison(field=Field('a'), op='>', value=2)
+    result = node.evaluate(s)
+    expected = s.get_property('a') > 2
+    assert (result == expected).all()
+
+def test_property_selection(structure, Field):
+    s = structure
+    node = abstract.PropertySelection(
+        field=Field('s'),
+        values=[abstract.StringValue('foo'), abstract.StringValue('baz')]
+    )
+    result = node.evaluate(s)
+    expected = s.get_property('s').isin(['foo', 'baz'])
+    assert (result == expected).all()
+
+def test_property_selection_underscore_wildcard_cif():
+    """`_` wildcard matches empty/space/NaN plus CIF '.' (missing) and '?' (unknown) markers."""
+    s = PandasStructure(pd.DataFrame({'altloc': ['', ' ', '.', '?', np.nan, 'A']}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='altloc'),
+        values=[abstract.StringValue('_')],
+    )
+    result = node.evaluate(s)
+    assert list(result) == [True, True, True, True, True, False]
+
+def test_property_selection_fractional_step_range_skips_and_warns():
+    """On genuinely fractional columns the step is skipped (modulo undefined) AND a warning is raised."""
+    s = PandasStructure(pd.DataFrame({'x': [0.0, 0.5, 1.0, 5.0, 20.0, 21.0]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='x'),
+        values=[abstract.RangeValue(start=0, end=20, step=2)],
+    )
+    with pytest.warns(RuntimeWarning, match=r"step in range .* ignored"):
+        result = node.evaluate(s)
+    assert list(result) == [True, True, True, True, True, False]
+
+def test_property_selection_int_step_range_applies_step():
+    """Step filtering applies on integer columns (no warning)."""
+    s = PandasStructure(pd.DataFrame({'a': [0, 1, 2, 3, 4, 5]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='a'),
+        values=[abstract.RangeValue(start=0, end=4, step=2)],
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = node.evaluate(s)
+    assert list(result) == [True, False, True, False, True, False]
+
+def test_property_selection_integer_valued_float_applies_step():
+    """The footgun: integer data stored as float (e.g. resid with a missing value) still applies the step."""
+    s = PandasStructure(pd.DataFrame({'resid': [0.0, 1.0, 2.0, 3.0, 4.0, np.nan]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='resid'),
+        values=[abstract.RangeValue(start=0, end=4, step=2)],
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = node.evaluate(s)
+    # 0,2,4 selected; 1,3 excluded by step; NaN excluded from range
+    assert list(result) == [True, False, True, False, True, False]
+
+@pytest.mark.parametrize("text,expected", [
+    ("12",      0.5),
+    ("12.0",    0.05),
+    ("12.011",  0.0005),
+    (".5",      0.05),
+    ("12.",     0.5),
+    ("1e1",     5.0),
+    ("1.20e1",  0.05),
+    ("0.0",     0.05),
+    ("100",     0.5),
+    ("1E8",     5e7),
+])
+def test_numeric_tolerance_from_literal(text, expected):
+    """Tolerance is derived from the literal's decimal precision, not its float value."""
+    tol = abstract.numeric_tolerance_from_literal(text)
+    assert tol == pytest.approx(expected, rel=1e-9), f"{text!r} → {tol}, expected {expected}"
+
+def test_property_selection_mass_integer_literal_tolerance():
+    """`mass 12` matches carbon (12.011) via integer ±0.5 tolerance; other elements excluded."""
+    s = PandasStructure(pd.DataFrame({'mass': [12.011, 24.305, 1.008, 15.999, 11.4]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='mass'),
+        values=[abstract.Number(value='12')],
+    )
+    result = node.evaluate(s)
+    # window [11.5, 12.5): only carbon 12.011; 11.4 falls just below
+    assert list(result) == [True, False, False, False, False]
+
+def test_property_selection_mass_decimal_literal_tolerance():
+    """`mass 12.0` uses the tighter ±0.05 tolerance (one decimal place)."""
+    s = PandasStructure(pd.DataFrame({'mass': [12.011, 12.04, 12.06, 11.97]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='mass'),
+        values=[abstract.Number(value='12.0')],
+    )
+    result = node.evaluate(s)
+    # window [11.95, 12.05): 12.06 excluded
+    assert list(result) == [True, True, False, True]
+
+def test_property_selection_non_mass_float_is_exact():
+    """Non-mass float columns keep exact equality — no tolerance is applied."""
+    s = PandasStructure(pd.DataFrame({'x': [12.0, 12.011, 11.6]}))
+    node = abstract.PropertySelection(
+        field=abstract.SelectionKeyword(name='x'),
+        values=[abstract.Number(value='12')],
+    )
+    result = node.evaluate(s)
+    assert list(result) == [True, False, False]
+
+def test_regex(structure, Field, LiteralValue, array_type):
+    s = structure
+    node = abstract.Regex(field=Field('s'), pattern=LiteralValue('ba.'))
+    result = node.evaluate(s)
+    col = s.get_property('s').astype(str)
+    if hasattr(col, 'str_contains'):
+        expected = col.str_contains('ba.', regex=True)
+    elif hasattr(col, 'str'):
+        expected = col.str.contains('ba.', regex=True)
+    else:
+        import re
+        regex = re.compile('ba.')
+        values = getattr(col, 'data', None) or getattr(col, 'values', None) or list(col)
+        expected = type(col)([bool(regex.search(x)) for x in values], col.index)
+    assert (result == expected).all()
+
+def test_within(structure, LiteralMask, LiteralValue, array_type):
+    s = structure
+    mask_node = LiteralMask(array_type([True, False, False, False], index=s.index))
+    node = abstract.Within(distance=LiteralValue(1.0), target_mask=mask_node)
+    result = node.evaluate(s)
+    if isinstance(result, PandasArray):
+        assert result.iloc[0] == True
+        assert result.iloc[1] == True
+        assert result.iloc[2] == True
+        assert result.iloc[3] == False
+    else:
+        assert result[0] == True
+        assert result[1] == True
+        assert result[2] == True
+        assert result[3] == False
+
+def test_same(structure, Field, LiteralMask, array_type):
+    s = structure
+    node = abstract.Same(field=Field('s'), mask=LiteralMask(array_type([True, False, False, True], index=s.index)))
+    result = node.evaluate(s)
+    expected = s.get_property('s').isin(['foo', 'baz'])
+    assert (result == expected).all()
+
+def test_selection_keyword(structure, array_type):
+    s = structure
+    node = abstract.SelectionKeyword(name='a')
+    result = node.evaluate(s)
+    expected = s.get_property('a')
+    assert (result == expected).all()
+    node_index = abstract.SelectionKeyword(name='index')
+    result_index = node_index.evaluate(s)
+    if isinstance(result_index, PandasArray):
+        expected_index = PandasArray(s.index, index=s.index, name='index')
+    else:
+        expected_index = PureArray(s.index, name='index', index=s.index)
+    assert (result_index == expected_index).all()
+
+def test_range_value(structure, LiteralValue):
+    s = structure
+    node = abstract.RangeValue(start=LiteralValue(1), end=LiteralValue(3), step=LiteralValue(1))
+    assert node.evaluate(s) == (1, 3, 1)
+
+def test_string_values(structure):
+    s = structure
+    assert abstract.StringValue('foo').evaluate(s) == 'foo'
+    assert abstract.QuotedStringValue('"foo"').evaluate(s) == 'foo'
+    assert abstract.RegexValue('ba.').evaluate(s) == 'ba.'
+
+# 3. Math nodes
+def test_math_nodes(structure, Field):
+    s = structure
+    node_add = abstract.Add(left=Field('a'), right=Field('b'))
+    node_sub = abstract.Sub(left=Field('a'), right=Field('b'))
+    node_mul = abstract.Mul(left=Field('a'), right=Field('b'))
+    node_div = abstract.Div(left=Field('a'), right=Field('b'))
+    node_floordiv = abstract.FloorDiv(left=Field('a'), right=Field('b'))
+    node_mod = abstract.Mod(left=Field('a'), right=Field('b'))
+    node_pow = abstract.Pow(left=Field('a'), right=Field('b'))
+    node_neg = abstract.Neg(value=Field('a'))
+    assert (node_add.evaluate(s) == (s.get_property('a') + s.get_property('b'))).all()
+    assert (node_sub.evaluate(s) == (s.get_property('a') - s.get_property('b'))).all()
+    assert (node_mul.evaluate(s) == (s.get_property('a') * s.get_property('b'))).all()
+    assert (node_div.evaluate(s) == (s.get_property('a') / s.get_property('b'))).all()
+    assert (node_floordiv.evaluate(s) == (s.get_property('a') // s.get_property('b'))).all()
+    assert (node_mod.evaluate(s) == (s.get_property('a') % s.get_property('b'))).all()
+    assert (node_pow.evaluate(s) == (s.get_property('a') ** s.get_property('b'))).all()
+    assert (node_neg.evaluate(s) == (-s.get_property('a'))).all()
+
+def test_func_number_const(structure, LiteralValue):
+    s = structure
+    node_func = abstract.Func(name='abs', arg=LiteralValue(-5))
+    assert node_func.evaluate(s) == 5
+    node_sq = abstract.Func(name='sq', arg=LiteralValue(3))
+    assert node_sq.evaluate(s) == 9
+    node_number = abstract.Number(value='3.14')
+    assert node_number.evaluate(s) == 3.14
+    node_const_pi = abstract.Const(name='pi')
+    assert math.isclose(node_const_pi.evaluate(s), math.pi)
+    node_const_e = abstract.Const(name='e')
+    assert math.isclose(node_const_e.evaluate(s), math.e)
+    with pytest.raises(MolSelectEvaluationError, match=r"Unknown constant 'unknown'"):
+        abstract.Const(name='unknown').evaluate(s)
+
+
+# --- Domain sanitization tests for Func ---
+
+def test_func_domain_in_domain_no_warning(structure, LiteralValue):
+    """Functions called with valid-domain inputs produce no warnings."""
+    s = structure
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        # arcsin/arccos: in [-1, 1]
+        assert math.isclose(abstract.Func(name='arcsin', arg=LiteralValue(0.5)).evaluate(s), math.asin(0.5))
+        assert math.isclose(abstract.Func(name='arccos', arg=LiteralValue(0.5)).evaluate(s), math.acos(0.5))
+        # sqrt, log, log10: positive values
+        assert math.isclose(abstract.Func(name='sqrt', arg=LiteralValue(4.0)).evaluate(s), 2.0)
+        assert math.isclose(abstract.Func(name='log', arg=LiteralValue(1.0)).evaluate(s), 0.0)
+        assert math.isclose(abstract.Func(name='log10', arg=LiteralValue(100.0)).evaluate(s), 2.0)
+        # sin/cos — no domain constraint, should not warn
+        abstract.Func(name='sin', arg=LiteralValue(1000.0)).evaluate(s)
+        abstract.Func(name='cos', arg=LiteralValue(1000.0)).evaluate(s)
+
+
+def test_func_domain_near_boundary_silent_clamp(structure, LiteralValue):
+    """Near-boundary FP artifacts (within tolerance) are silently clamped — no warning."""
+    s = structure
+    eps = 1e-8  # well within default tolerance of 1e-6
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        # arcsin(1 + eps) → clamped to arcsin(1) = π/2
+        r = abstract.Func(name='arcsin', arg=LiteralValue(1.0 + eps)).evaluate(s)
+        assert math.isclose(r, math.pi / 2, rel_tol=1e-9)
+        # arccos(-1 - eps) → clamped to arccos(-1) = π
+        r = abstract.Func(name='arccos', arg=LiteralValue(-1.0 - eps)).evaluate(s)
+        assert math.isclose(r, math.pi, rel_tol=1e-9)
+        # sqrt(-eps) → clamped to sqrt(0) = 0
+        r = abstract.Func(name='sqrt', arg=LiteralValue(-eps)).evaluate(s)
+        assert r == 0.0
+
+
+def test_func_domain_far_out_produces_nan_and_warning(structure, LiteralValue):
+    """Far-out-of-domain values produce NaN and a single consolidated RuntimeWarning."""
+    s = structure
+    # The warning must name the offending sub-expression, e.g. ... in `arcsin(...)`
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*outside domain in `arcsin\("):
+        r = abstract.Func(name='arcsin', arg=LiteralValue(50.0)).evaluate(s)
+    assert math.isnan(r)
+
+    with pytest.warns(RuntimeWarning, match=r"sqrt.*outside domain in `sqrt\("):
+        r = abstract.Func(name='sqrt', arg=LiteralValue(-5.0)).evaluate(s)
+    assert math.isnan(r)
+
+    with pytest.warns(RuntimeWarning, match=r"log.*outside domain in `log\("):
+        r = abstract.Func(name='log', arg=LiteralValue(-1.0)).evaluate(s)
+    assert math.isnan(r)
+
+
+def test_func_domain_log_zero_returns_neg_inf(structure, LiteralValue):
+    """log(0) returns -inf (mathematically correct limit), without RuntimeWarning."""
+    s = structure
+    # log(0) → -inf from numpy, our errstate suppresses the divide warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        r = abstract.Func(name='log', arg=LiteralValue(0.0)).evaluate(s)
+    assert r == float('-inf')
+
+
+def test_func_domain_array_mixed_values(LiteralValue):
+    """Array with mixed valid/near-boundary/far-out values: correct clamping + single warning with count."""
+    from molselect.python.backends.pandas import PandasStructure
+    s = PandasStructure(pd.DataFrame({'x': [0, 1, 2, 3]}))
+    # arcsin: [-1, 1] valid, 1+1e-8 near-boundary (clamp), 50 far-out (NaN)
+    vals = pd.Series([0.5, 1.0 + 1e-8, -1.0 - 1e-8, 50.0])
+    with pytest.warns(RuntimeWarning, match=r"arcsin.*1 of 4.*outside domain in `arcsin\("):
+        result = abstract.Func(name='arcsin', arg=LiteralValue(vals)).evaluate(s)
+    assert math.isclose(result.iloc[0], math.asin(0.5))
+    assert math.isclose(result.iloc[1], math.pi / 2, rel_tol=1e-9)
+    assert math.isclose(result.iloc[2], -math.pi / 2, rel_tol=1e-9)
+    assert math.isnan(result.iloc[3])
+
+# 4. Macro, Start, NotImplemented nodes
+def test_macro_start(structure):
+    s = structure
+    start = abstract.Start(expr=abstract.All())
+    assert start.evaluate(s).len() == s.len()
+
+@pytest.fixture(params=["pure", "pandas"])
+def sequence_structure(request):
+    """Structure with resname, residue, chain columns for sequence tests.
+
+    Layout:
+      Chain A: residue 0=ALA(A), 1=CYS(C), 2=ASP(D)  -> sequence "ACD"
+      Chain B: residue 3=DA(A),  4=DT(T)               -> sequence "AT"
+      Plus 1 water (HOH) atom with residue 5 -> skipped in sequence
+    Each residue has 2 atoms.
+    """
+    df = {
+        'resname': ['ALA', 'ALA', 'CYS', 'CYS', 'ASP', 'ASP', 'DA', 'DA', 'DT', 'DT', 'HOH', 'HOH'],
+        'residue': [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+        'chain':   ['A', 'A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B', 'B'],
+        'name':    ['CA', 'CB'] * 6,
+        'x': [0.0] * 12, 'y': [0.0] * 12, 'z': [0.0] * 12,
+    }
+    if request.param == "pure":
+        return PureStructure(df, index=list(range(12)))
+    else:
+        return PandasStructure(pd.DataFrame(df))
+
+
+def test_sequence_selection(sequence_structure):
+    s = sequence_structure
+
+    # Literal match: "A" matches ALA in chain A (res 0, 2 atoms) AND DA in chain B (res 3, 2 atoms)
+    node = abstract.SequenceSelection(abstract.StringValue('A'))
+    result = node.evaluate(s)
+    assert result.any()
+    selected = s.select(result)
+    assert selected.len() == 4  # res 0 (2 atoms) + res 3 (2 atoms)
+
+    # Literal match: "ACD" matches full chain A -> 6 atoms
+    node = abstract.SequenceSelection(abstract.StringValue('ACD'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6
+
+    # Literal match: "AT" matches chain B DNA -> 4 atoms (DA + DT, excludes HOH)
+    node = abstract.SequenceSelection(abstract.StringValue('AT'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 4
+
+    # Literal match: no match -> empty
+    node = abstract.SequenceSelection(abstract.StringValue('XYZ'))
+    result = node.evaluate(s)
+    assert not result.any()
+
+    # Regex: "." matches every mapped residue (5 residues, 10 atoms; HOH skipped)
+    node = abstract.SequenceSelection(abstract.QuotedStringValue('"."'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 10
+
+    # Regex: "A.D" matches ACD in chain A -> 6 atoms
+    node = abstract.SequenceSelection(abstract.QuotedStringValue('"A.D"'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6
+
+    # Chain-aware: "DA" should NOT match across chain boundary (D in A + A in B)
+    node = abstract.SequenceSelection(abstract.StringValue('DA'))
+    result = node.evaluate(s)
+    assert not result.any()  # "DA" is not a substring of "ACD" or "AT"
+
+    # RegexValue: "[AC]" matches A and C in chain A + A in chain B
+    node = abstract.SequenceSelection(abstract.RegexValue('[AC]'))
+    result = node.evaluate(s)
+    assert s.select(result).len() == 6  # res 0(A) + res 1(C) in chain A + res 3(A) in chain B
+
+
+def test_sequence_selection_uses_get_sequence_fast_path():
+    """If a backend provides get_sequence(), SequenceSelection uses it instead of the atom loop."""
+    class FastStructure(PandasStructure):
+        called = False
+        def get_sequence(self, sequence_map):
+            FastStructure.called = True
+            # Deliberately disagree with the resnames below: report 'AAA' so that a
+            # query of 'CD' matches nothing IFF the fast path (not the atom loop) is used.
+            return {'A': ('AAA', [0, 1, 2])}
+
+    s = FastStructure(pd.DataFrame({
+        'residue': [0, 1, 2],
+        'resname': ['ALA', 'CYS', 'ASP'],   # atom-loop would spell 'ACD'
+        'chain': ['A', 'A', 'A'],
+    }))
+    node = abstract.SequenceSelection(abstract.StringValue('CD'))
+    result = node.evaluate(s)
+    assert FastStructure.called is True
+    # fast-path sequence 'AAA' has no 'CD' → nothing selected (proves fast path drove the result)
+    assert list(result) == [False, False, False]
+
+
+def test_pandas_get_sequence_contract():
+    """PandasStructure.get_sequence: per-chain sequences, unknown resnames and missing residues skipped."""
+    s = PandasStructure(pd.DataFrame({
+        'residue': [0, 0, 1, 2, 3],
+        'resname': ['ALA', 'ALA', 'CYS', 'ASP', 'HOH'],  # HOH not in SEQUENCE_MAP → skipped
+        'chain':   ['A', 'A', 'A', 'B', 'B'],
+    }))
+    seqs = s.get_sequence(abstract.SEQUENCE_MAP)
+    assert seqs == {'A': ('AC', [0, 1]), 'B': ('D', [2])}
+
+
+def test_pandas_get_sequence_no_chain_column():
+    """Without a chain column all residues fall under a single '' chain (matches the fallback)."""
+    s = PandasStructure(pd.DataFrame({'residue': [0, 1, 2], 'resname': ['ALA', 'CYS', 'ASP']}))
+    seqs = s.get_sequence(abstract.SEQUENCE_MAP)
+    assert seqs == {'': ('ACD', [0, 1, 2])}
+
+
+def test_pandas_get_sequence_matches_fallback():
+    """The fast path and the generic atom-loop fallback produce identical sequences."""
+    df = pd.DataFrame({
+        'residue': [0, 0, 1, 2, 2, 3],
+        'resname': ['ALA', 'ALA', 'CYS', 'ASP', 'ASP', 'GLY'],
+        'chain':   ['A', 'A', 'B', 'A', 'A', 'B'],
+    })
+    s = PandasStructure(df)
+    assert s.get_sequence(abstract.SEQUENCE_MAP) == abstract.SequenceSelection._build_sequences(s)
+
+
+def test_notimplemented_nodes(structure):
+    s = structure
+    with pytest.raises(NotImplementedError):
+        abstract.Bonded(distance=1.0, selection=abstract.All()).evaluate(s)

@@ -1,0 +1,47 @@
+// ===========================================================================
+// Grammar area: REGEX & QUOTING
+//   Quoted string values (single/double), regex values, escaped quotes,
+//   wildcard names. Field operands are name/resname.
+//
+// Divergences owned by this file (captured once):
+//   - a bare double-quoted value is a regex in MolSelect/VMD; ProDy anchors it
+//     differently  -> per-(pdb) prody xfail / prody_query.
+//   - ProDy rejects single-quoted values  -> unquoted prody_query.
+//   - ProDy cannot mix regex with literals in one term  -> xfail prody.
+// ===========================================================================
+[
+    {"description": "quoting: double-quoted literal", "query": "name \"CA\"",
+     "xfail": {"1mba.cif": {"prody": "ProDy regex anchoring differs on bare-quoted name"},
+               "1mba.pdb": {"prody": "ProDy regex anchoring differs on bare-quoted name"}}},
+    {"description": "quoting: single-quoted resname", "query": "resname 'DG'",
+     "prody_query": "resname DG",
+     "note": "ProDy does not accept single-quoted values; unquoted equivalent given."},
+    {"description": "quoting: single-quoted resname list", "query": "resname 'DG' 'ALA'",
+     "prody_query": "resname DG ALA"},
+
+    {"description": "regex: name C.*", "query": "name \"C.*\""},
+    {"description": "regex: resname A.*", "query": "resname \"A.*\""},
+    {"description": "regex: name ending in quote", "query": "name \".*'\""},
+    {"description": "regex: resname S..", "query": "resname \"S..\""},
+    {"description": "regex: alternation C(A|B)", "query": "name \"C(A|B)\"",
+     "xfail": {"1mba.cif": {"prody": "ProDy regex anchoring differs"},
+               "1mba.pdb": {"prody": "ProDy regex anchoring differs"}}},
+    {"description": "regex: character class C[AB]", "query": "name \"C[AB]\"",
+     "xfail": {"1mba.cif": {"prody": "ProDy regex anchoring differs"},
+               "1mba.pdb": {"prody": "ProDy regex anchoring differs"}}},
+    {"description": "regex: alternation CA|CB", "query": "name \"CA|CB\"",
+     "xfail": {"1mba.cif": {"prody": "ProDy regex anchoring differs"},
+               "1mba.pdb": {"prody": "ProDy regex anchoring differs"}}},
+
+    {"description": "quoting: apostrophe inside atom name", "query": "name O5'"},
+    {"description": "quoting: mixed name list with apostrophe", "query": "name A' 'CA'",
+     "prody_query": "name CA",
+     "note": "`A'` matches no atom, so the selection reduces to CA; ProDy gets the unquoted equivalent."},
+
+    {"description": "regex: mix of regex and literals", "query": "resname \"A.*\" GLY \".*T\"",
+     "xfail": {"*": {"prody": "ProDy cannot mix regex and literal values in one term"}}},
+    {"description": "quoting: several quoted name forms",
+     "query": "name \"CA\" \"CB\" \"CA CB\"",
+     "prody_query": "name CA CB \"CA CB\"",
+     "note": "ProDy supports only one regex per term; literals listed explicitly."}
+]

@@ -1,0 +1,117 @@
+// ===========================================================================
+// Grammar area: MACROS  (GENERATED — every public macro in macros.json is
+// enumerated automatically by case_gen.generate_macro_cases; each synonym is
+// checked for MolSelect-internal equivalence to its canonical macro.)
+//
+// The generator handles two divergence classes on its own:
+//   * pure `resname ...` macros  -> VMD/ProDy compared via the same resname set.
+//   * secondary-structure macros (definition uses `structure`) -> ProDy gets the
+//     equivalent `secstr ...`; VMD excused (STRIDE); ProDy excused on CIF.
+//
+// Only macros that diverge for OTHER reasons need an entry below. Each value may
+// set: query, vmd_query, prody_query, xfail, note.
+// ===========================================================================
+{
+  "generate": "macros",
+  "exceptions": {
+    "carbon": {
+      "xfail": {"4x5p.cif": "MolSelect mislabels 1 atom's element on 4x5p (upstream molscene CIF bug)"}
+    },
+    "sulfur": {
+      "prody_query": "element S", "vmd_query": "element S",
+      "note": "VMD/ProDy `sulfur` include selenium (MSE SE) via name regex; MolSelect uses element S"
+    },
+
+    "protein": {
+      "vmd_query": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK",
+      "note": "VMD `protein` is connectivity-based; matched here via an equivalent resname list"
+    },
+    "aminoacid": {
+      "vmd_query": "protein",
+      "xfail": {"*": {"prody": "ProDy `protein` is resname-based; no connectivity equivalent"},
+                "1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM"},
+                "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM"}},
+      "note": "MolSelect `aminoacid` (VMD-style connectivity protein detection)"
+    },
+    "calpha": {
+      "vmd_query": "name CA and (resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK)"
+    },
+    "backbonefull": {
+      "vmd_query": "name N CA C O H H1 H2 H3 OXT and resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL MSE SEP TPO PTR PHD CME CSO CYX HIP HID HIE HSD HSE HSP",
+      "prody_query": "protein and name N CA C O H H1 H2 H3 OXT"
+    },
+    "sidechain": {
+      "vmd_query": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK and not name N CA C O H H1 H2 H3 OXT",
+      "prody_query": "protein and not (name N CA C O H H1 H2 H3 OXT)"
+    },
+    "backbone": {
+      "xfail": {"*": {"vmd": "VMD backbone atom set differs from MolSelect protein+nucleic backbone"},
+                "1atp.cif": {"prody": "ProDy backbone is protein-only; MolSelect includes nucleic backbone"},
+                "1atp.pdb": {"prody": "ProDy backbone is protein-only; MolSelect includes nucleic backbone"},
+                "1zbl.cif": {"prody": "ProDy backbone is protein-only"},
+                "1zbl.pdb": {"prody": "ProDy backbone is protein-only"},
+                "pdb3mht.pdb": {"prody": "ProDy backbone is protein-only"}}
+    },
+
+    "hetero": {
+      "vmd_query": "hetero and not resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK",
+      "xfail": {"pdb3mht.pdb": {"vmd": "VMD classifies SAH (amino-acid-bearing cofactor) as protein"}}
+    },
+    "ion": {
+      "xfail": {"1atp.cif": {"vmd": "VMD ion macro differs on 1atp"},
+                "1atp.pdb": {"vmd": "VMD ion macro differs on 1atp"}}
+    },
+    "charged": {
+      "xfail": {"1atp.cif": "MolSelect charged includes phosphorylated residues (SEP/TPO/PTR/PHD); VMD/ProDy exclude them",
+                "1atp.pdb": "MolSelect charged includes phosphorylated residues (SEP/TPO/PTR/PHD); VMD/ProDy exclude them"}
+    },
+    "acyclic": {
+      "xfail": {"1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM"},
+                "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM"},
+                "pdb3mht.pdb": {"vmd": "VMD acyclic differs on pdb3mht (SAH classification)"}}
+    },
+    "coil": {
+      "prody_query": "secstr C S T",
+      "xfail": {"*": {"vmd": "VMD uses STRIDE; MolSelect/ProDy use DSSP",
+                      "prody": "ProDy stores coil as an empty string, not C"}}
+    },
+
+    "solvent": {
+      "prody_query": "not (protein or sugar or nucleic or lipid)",
+      "vmd_query": "not (protein or sugar or nucleic or lipid)",
+      "xfail": {"pdb3mht.pdb": {"vmd": "VMD classifies SAH as protein, shrinking the solvent complement"},
+                "1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; protein is empty"},
+                "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; protein is empty"},
+                "3ay6.cif": {"vmd": "VMD connectivity protein differs on 3ay6, shifting the solvent complement"}}
+    },
+    "protein_backbone": {
+      "prody_query": "protein and name C CA N O", "vmd_query": "protein and name C CA N O",
+      "xfail": {"pdb3mht.pdb": {"vmd": "VMD protein includes SAH (connectivity), adding backbone atoms"},
+                "1r70.cif": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; protein is empty"},
+                "1r70.pdb": {"vmd": "VMD reads 1r70 (CA-trace) as all-HETATM; protein is empty"}}
+    },
+    "nucleic_backbone": {
+      "prody_query": "nucleic and name P OP1 OP2 C3' C4' C5' O3' O5'",
+      "vmd_query": "nucleic and name P OP1 OP2 C3' C4' C5' O3' O5'",
+      "note": "Legacy star-named atoms (C3* …) omitted from the reference query; the test structures use prime names."
+    },
+    "drude": {
+      "xfail": {"*": {"prody": "ProDy has no drude macro"}},
+      "note": "Drude particles (type DRUD/LP) are absent from the test structures (count 0)."
+    },
+
+    "prody_protein": {
+      "prody_query": "protein",
+      "vmd_query": "resname ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL ASX GLX CSO CYX HIP HID HIE HSD HSE HSP MSE CME SEC SEP TPO PTR PHD XLE XAA MEN CSB UNK",
+      "note": "MolSelect `prody_protein` = stdaa or nonstdaa (ProDy's resname-based protein)"
+    },
+    "prody_nucleic": {
+      "prody_query": "nucleic", "vmd_query": "nucleic",
+      "note": "MolSelect `prody_nucleic` emulates ProDy's nucleic"
+    },
+    "vmd_nucleic": {
+      "xfail": {"*": "MolSelect `vmd_nucleic` (connectivity emulation) currently returns 0; incomplete — known limitation"}
+    }
+  },
+  "extra": []
+}

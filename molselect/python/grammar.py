@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/generate_grammar.py
+Dynamically creates the grammar.lark file for molselect using the keywords and macros defined in JSON files.
 
 Reads:
   - molscene/selection/grammar_template.lark
@@ -23,7 +24,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def load_json(path: Path) -> dict:
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
@@ -31,16 +32,15 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
     Returns (block_text, names_alternation, category_rules)
     - block_text: all token rules, grouped by category, with comments
     - names_alternation: all token names (for | alternation)
-    - category_rules: one rule per category, e.g. ?bool_biomolecule: PROTEIN | NUCLEIC | ...
+    - category_rules: one rule per category, e.g. ?bool_biomolecules: PROTEIN | NUCLEIC | ...
     """
     lines = []
     names = []
     categories = []
     for category in tokens.keys():
-        
         cat_tokens = []
         # Add a comment for the category
-        lines.append(f"")
+        lines.append("")
         lines.append(f"// {category}")
         for token in tokens[category]:
             if token.startswith("_"):
@@ -48,16 +48,32 @@ def make_token_block(tokens: dict, prefix='token') -> tuple[str, str, str]:
             name = token
             token_data = tokens[category][token]
             macro_token = f"{name.upper()}"
-            macro_rule = f'{macro_token} : "{name}"'
-            if "synonyms" in token_data and len(token_data["synonyms"]) > 0:
-                macro_rule += " | " + " | ".join(f'"{syn}"' for syn in token_data["synonyms"])
+            # Use regex_substitution dict if present, otherwise string literal
+            regex_dict = token_data.get("regex_substitution", {})
+            # Main name
+            if name in regex_dict:
+                main_rule = regex_dict[name]
+            else:
+                main_rule = f'"{name}"'
+            # Synonyms: use regex if present in dict, else string literal
+            syns = []
+            for syn in token_data.get("synonyms", []):
+                if syn in regex_dict:
+                    syns.append(regex_dict[syn])
+                elif syn.startswith("/") and syn.endswith("/"):
+                    syns.append(syn)
+                else:
+                    syns.append(f'"{syn}"')
+            macro_rule = f'{macro_token} : {main_rule}'
+            if syns:
+                macro_rule += " | " + " | ".join(syns)
             lines.append(macro_rule)
             names.append(macro_token)
             cat_tokens.append(macro_token)
         # Add a category rule if there are tokens
         if cat_tokens:
-            # Use category name for rule, e.g. bool_biomolecule
-            rule_name = f"{prefix}_{category.lower()}"
+            # Always lower and replace spaces by underscores for rule name
+            rule_name = f"{prefix}_{category.lower().replace(' ', '_')}"
             category_rule = f"?{rule_name}: " + " | ".join(cat_tokens)
             lines.append(category_rule)
             categories.append(rule_name)
@@ -75,30 +91,49 @@ def compute_last_token_pattern(grammar_text: str) -> str:
     """
     # Remove comments
     no_comments = re.sub(r'//.*', '', grammar_text)
-    reserved = []
+    reserved_literals = []
+    reserved_regex = []
     for line in no_comments.splitlines():
         m = re.match(r'^\s*([A-Z_][A-Z0-9_]*)\s*:\s*(.+)$', line)
         if not m:
             continue
-        for lit in re.findall(r'"([^"]+)"', m.group(2)):
-            reserved.append(lit)
+        token_name, rhs = m.group(1), m.group(2)
+
+        # 1) Skip any regex that isn’t a selection token:
+        if token_name in (
+            "COMMENT",
+            "SINGLE_QUOTED_STRING",
+            "TRIPLE_SINGLE_QUOTED_STRING",
+            "TRIPLE_DOUBLE_QUOTED_STRING",
+        ):
+            continue
+        if not m:
+            continue
+        for lit in re.findall(r'"([^"]+)"', rhs):
+            reserved_literals.append(lit)
+        # Collect all slash‑delimited regex patterns
+        for regex_pat in re.findall(r'(?<!")/((?:\\.|[^/])*)/(?!")', rhs):
+            reserved_regex.append(regex_pat)  # Escape slashes for regex
     # Build alternation pattern for reserved words
-    kw_pat = "|".join(map(re.escape, reserved))
+    keyword_patterns = "|".join(map(re.escape, reserved_literals))
+    regex_patterns = "|".join(reserved_regex)
+    patterns = f"{keyword_patterns}|{regex_patterns}"
     # Compose the last-token regex pattern (no ^/$ anchors, use \b after reserved alternation)
     last_token_pattern = (
         r"""(?![-'"()])"""  # not starting with these punctuations
-        rf"""(?!(?:{kw_pat})\b)"""  # not a reserved word
+        rf"""(?!(?:{patterns})\b)"""  # not a reserved word
         r"""(?!\d+(?:\.\d*)?(?:[eE][+-]?\d+)?\b)"""  # not a number
-        r"(?=[A-Za-z])"  # must start with a letter
+        r"(?=[A-Za-z_])"  # must start with a letter or underscore
         r"""[^()'"\s]+"""  # match token
+        r"""(?:['*])?"""   # optionally end with ' or *"""
     )
 
     last_token_pattern = last_token_pattern.replace('/', r'\/')
     return f"/{last_token_pattern}/"
 
 
-def main(file_out: Path | None = None):
-    from molselect.python.config import ConfigManager
+def main(file_out: Path | None = None, remove_hidden_tokens: bool = False):
+    from molselect.python.config import config
     from tempfile import NamedTemporaryFile
     """
     Generate the grammar.lark file from the template and JSON files.
@@ -107,10 +142,9 @@ def main(file_out: Path | None = None):
     """
 
     # Load configuration
-    cfg = ConfigManager()
-    TEMPLATE = cfg.grammar.path
-    MACROS_JSON = cfg.macros.paths
-    KEYWORDS_JSON = cfg.keywords.paths
+    TEMPLATE = config.grammar.path
+    MACROS_JSON = config.macros.paths
+    KEYWORDS_JSON = config.keywords.paths
 
     # load template + JSON
 
@@ -150,6 +184,10 @@ def main(file_out: Path | None = None):
 
     # final injection
     final = interim.replace("<<LAST_TOKEN>>", last_tok)
+
+    if remove_hidden_tokens:
+        # Remove hidden tokens (those starting with a question mark)
+        final = re.sub(r'(?m)^(\s*)\?([A-Za-z_]\w*)(\s*:)', r'\1\2\3', final)
 
     #Write to a temporary file or the specified output file
     if file_out is None:

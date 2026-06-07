@@ -70,6 +70,12 @@ Welcome to MolSelect's documentation!
 
    getting_started
    user_guide
+   syntax/selections
+   syntax/logic
+   syntax/math
+   keywords
+   macros
+   Compatibility
    api
    developer_guide
 

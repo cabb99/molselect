@@ -2,44 +2,13 @@
   "keywords": {
     "Indices": {
       "serial": {
-        "synonyms": ["id", "serial"],
+        "synonyms": ["id"],
         "type": "int",
         "short": "Atom serial number (file-based).",
         "description": [
           "Atom serial number (file-based). Unique for each atom in the molecule."
-        ]
-      },
-      "resid": {
-        "synonyms": ["label_seq_id", "resseq"],
-        "type": "int",
-        "short": "Residue sequence number (file-based).",
-        "description": [
-          "Residue sequence number (file-based). Numeric value assigned to residues, often increasing along the chain."
-        ]
-      },
-      "chain": {
-        "synonyms": ["chid", "chainid", "label_asym_id", "chainid"],
-        "type": "str",
-        "short": "Chain identifier (file-based).",
-        "description": [
-          "Chain identifier (file-based). Single-letter code distinguishing subcomponents of a molecule."
-        ]
-      },
-      "model": {
-        "synonyms": ["pdbx_PDB_model_num"],
-        "type": "int",
-        "short": "Model number (file-based).",
-        "description": [
-          "Model number (file-based). Used for multi-model structures (e.g., NMR ensembles)."
-        ]
-      },
-      "index": {
-        "synonyms": [],
-        "type": "int",
-        "short": "Atom index (0-based).",
-        "description": [
-          "Atom index (0-based). Internal index for each atom."
-        ]
+        ],
+        "example": "1"
       },
       "residue": {
         "synonyms": [],
@@ -47,15 +16,79 @@
         "short": "Residue index (0-based).",
         "description": [
           "Residue index (0-based). Internal index for each residue."
-        ]
+        ],
+        "example": "0",
+        "regex_substitution": {
+          "residue": "/residue\\b/"
+        }
+      },
+      "resid": {
+        "synonyms": ["resseq", "resnum"],
+        "type": "int",
+        "short": "Residue sequence number (author numbering).",
+        "description": [
+          "Residue sequence number using author-defined numbering. For PDB files, this is the",
+          "residue sequence number from the ATOM record columns 23-26. For CIF files, this",
+          "corresponds to auth_seq_id (the author's original numbering, which may contain gaps).",
+          "This follows the ProDy convention, where resid/resnum always refers to the author's",
+          "numbering. To access the CIF-internal sequential numbering (label_seq_id, which",
+          "restarts at 1 for each entity), use the 'label_seq_id' keyword instead.",
+          "See also: label_seq_id, auth_seq_id, residue."
+        ],
+        "example": "1",
+        "regex_substitution": {
+          "resid": "/resid(?!ue)\\b/"
+        }
+      },
+      "label_seq_id": {
+        "synonyms": [],
+        "type": "int",
+        "short": "CIF label sequence ID (sequential, per-entity, 1-based).",
+        "description": [
+          "CIF-internal residue sequence number (label_seq_id). 1-based, restarts at 1 for",
+          "each entity/chain. Only available for CIF-format structures; PDB files do not have",
+          "this field. Note: this was previously a synonym of resid but was separated because",
+          "label_seq_id and auth_seq_id can differ significantly (e.g. in multi-chain CIF files",
+          "where label_seq_id restarts per chain but auth_seq_id is globally unique).",
+          "See also: resid, auth_seq_id, residue."
+        ],
+        "example": "1"
+      },
+      "chain": {
+        "synonyms": ["chid", "label_asym_id", "chainid"],
+        "type": "str",
+        "short": "Chain identifier (file-based).",
+        "description": [
+          "Chain identifier (file-based). Single-letter code distinguishing subcomponents of a molecule."
+        ],
+        "example": "A"
+      },
+      "model": {
+        "synonyms": ["pdbx_PDB_model_num"],
+        "type": "int",
+        "short": "Model number (file-based).",
+        "description": [
+          "Model number (file-based). Used for multi-model structures (e.g., NMR ensembles)."
+        ],
+        "example": "1"
+      },
+      "index": {
+        "synonyms": [],
+        "type": "int",
+        "short": "Atom index (0-based).",
+        "description": [
+          "Atom index (0-based). Internal index for each atom."
+        ],
+        "example": "0"
       },
       "fragment": {
-        "synonyms": ["chindex", "chain_index", "frag_index"],
+        "synonyms": ["chindex", "chain_index", "frag_index", "fragindex"],
         "type": "int",
         "short": "Chain index (0-based).",
         "description": [
           "Chain index (0-based). Usually identifies connected fragments (e.g., protein chains, nucleic acid chains)."
-        ]
+        ],
+        "example": "0"
       },
       "frame": {
         "synonyms": [],
@@ -63,10 +96,10 @@
         "short": "Model number (0-based).",
         "description": [
           "Model number (0-based). Used for animation frames or trajectory steps."
-        ]
+        ],
+        "example": "0"
       }
     },
-
     "Names": {
       "name": {
         "synonyms": ["label_atom_id"],
@@ -74,53 +107,58 @@
         "short": "Atom name.",
         "description": [
           "Atom name. Standard chemical nomenclature (e.g., 'CA' for alpha carbon)."
-        ]
+        ],
+        "example": "CA"
       },
       "resname": {
-        "synonyms": ["label_comp_id", "resname"],
+        "synonyms": ["label_comp_id"],
         "type": "str",
         "short": "Residue name.",
         "description": [
           "Residue name. Three-letter code (e.g., 'GLY' for glycine)."
-        ]
+        ],
+        "example": "GLY"
       }
     },
-
-    "special_names": {
+    "Special Names": {
       "recname": {
-        "synonyms": ["atom", "hetatm"],
+        "synonyms": [],
         "type": "str",
         "short": "Record name.",
         "description": [
           "Record name. Used to distinguish record types in structure files."
-        ]
+        ],
+        "example": "ATOM"
       },
       "icode": {
-        "synonyms": ["pdbx_PDB_ins_code", "icode"],
+        "synonyms": ["pdbx_PDB_ins_code"],
         "type": "str",
         "short": "Code for insertion of residues.",
         "description": [
           "Code for insertion of residues. Used for residue insertion codes in PDB files."
-        ]
+        ],
+        "example": "A"
       },
       "altloc": {
-        "synonyms": ["label_alt_id", "altloc"],
+        "synonyms": ["label_alt_id"],
         "type": "str",
         "short": "Alternate location indicator.",
         "description": [
           "Alternate location indicator. Used for alternate conformations of atoms."
-        ]
+        ],
+        "example": "A"
       }
     },
-
-    "required_data": {
+    "Required Data": {
       "x": {
         "synonyms": ["Cartn_x"],
         "type": "float",
         "short": "Orthogonal coordinates for X in Angstroms.",
         "description": [
           "Orthogonal coordinates for X in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "12.345"
       },
       "y": {
         "synonyms": ["Cartn_y"],
@@ -128,7 +166,9 @@
         "short": "Orthogonal coordinates for Y in Angstroms.",
         "description": [
           "Orthogonal coordinates for Y in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "8.901"
       },
       "z": {
         "synonyms": ["Cartn_z"],
@@ -136,7 +176,9 @@
         "short": "Orthogonal coordinates for Z in Angstroms.",
         "description": [
           "Orthogonal coordinates for Z in Angstroms. Static position of the atom."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "5.678"
       },
       "occupancy": {
         "synonyms": [],
@@ -144,7 +186,9 @@
         "short": "Occupancy.",
         "description": [
           "Occupancy. Fractional occupancy of the atom position."
-        ]
+        ],
+        "range": [0.0, 1.0],
+        "example": "1.0"
       },
       "beta": {
         "synonyms": ["B_iso_or_equiv", "tempfactor"],
@@ -152,15 +196,22 @@
         "short": "Temperature factor (B-factor).",
         "description": [
           "Temperature factor (B-factor). Atomic displacement parameter."
-        ]
+        ],
+        "units": "Angstrom^2",
+        "example": "23.5"
       },
       "charge": {
         "synonyms": ["pdbx_formal_charge"],
+        "regex_substitution": {
+          "charge": "/charge\\b/"
+        },
         "type": "float",
         "short": "Charge on the atom.",
         "description": [
           "Charge on the atom. Partial or formal charge."
-        ]
+        ],
+        "units": "elementary charge (e)",
+        "example": "1"
       },
       "element": {
         "synonyms": ["type_symbol", "symbol"],
@@ -168,18 +219,19 @@
         "short": "Element symbol.",
         "description": [
           "Element symbol. Chemical element (e.g., 'C', 'O', 'N')."
-        ]
+        ],
+        "example": "C"
       }
     },
-
-    "optional_data": {
+    "Optional Data": {
       "segment": {
-        "synonyms": ["segname", "label_entity_id"],
+        "synonyms": ["segname"],
         "type": "str",
         "short": "Segment name.",
         "description": [
           "Segment name. Groups atoms into functional substructures (e.g., protein, water)."
-        ]
+        ],
+        "example": "PROT"
       },
       "type": {
         "synonyms": [],
@@ -187,7 +239,8 @@
         "short": "Atom type.",
         "description": [
           "Atom type. Used for parameterization or classification (e.g., force field types)."
-        ]
+        ],
+        "example": "CT"
       },
       "mass": {
         "synonyms": [],
@@ -195,7 +248,9 @@
         "short": "Mass.",
         "description": [
           "Mass. Atomic mass, used for dynamics and analysis."
-        ]
+        ],
+        "units": "Dalton (Da)",
+        "example": "12.01"
       },
       "atomicnumber": {
         "synonyms": [],
@@ -203,15 +258,17 @@
         "short": "Atomic number (0 if undefined).",
         "description": [
           "Atomic number (0 if undefined)."
-        ]
+        ],
+        "example": "6"
       },
-      "bonds": {
-        "synonyms": ["numbonds"],
+      "numbonds": {
+        "synonyms": ["bonds"],
         "type": "int",
         "short": "Number of bonds this atom participates in.",
         "description": [
           "Number of bonds this atom participates in."
-        ]
+        ],
+        "example": "4"
       },
       "radius": {
         "synonyms": ["radii"],
@@ -219,7 +276,9 @@
         "short": "Atom radius.",
         "description": [
           "Atom radius. Used for visualization and analysis."
-        ]
+        ],
+        "units": "Angstrom",
+        "example": "1.7"
       },
       "anisotropy": {
         "synonyms": ["siguij"],
@@ -227,7 +286,8 @@
         "short": "Standard deviations for anisotropic temperature factor.",
         "description": [
           "Standard deviations for anisotropic temperature factor (e.g., 'type CT1 CT2 CT3')."
-        ]
+        ],
+        "units": "Angstrom^2"
       },
       "vx": {
         "synonyms": [],
@@ -235,7 +295,9 @@
         "short": "Velocity in the x direction.",
         "description": [
           "Velocity in the x direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "0.12"
       },
       "vy": {
         "synonyms": [],
@@ -243,7 +305,9 @@
         "short": "Velocity in the y direction.",
         "description": [
           "Velocity in the y direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "-0.05"
       },
       "vz": {
         "synonyms": [],
@@ -251,7 +315,9 @@
         "short": "Velocity in the z direction.",
         "description": [
           "Velocity in the z direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "Angstrom/picosecond (Å/ps)",
+        "example": "0.00"
       },
       "fx": {
         "synonyms": [],
@@ -259,7 +325,9 @@
         "short": "Force in the x direction.",
         "description": [
           "Force in the x direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "1.23"
       },
       "fy": {
         "synonyms": [],
@@ -267,7 +335,9 @@
         "short": "Force in the y direction.",
         "description": [
           "Force in the y direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "-0.45"
       },
       "fz": {
         "synonyms": [],
@@ -275,7 +345,9 @@
         "short": "Force in the z direction.",
         "description": [
           "Force in the z direction. Used in dynamics/trajectories."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufx": {
         "synonyms": [],
@@ -283,7 +355,9 @@
         "short": "Force to apply in the x coordinate.",
         "description": [
           "Force to apply in the x coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufy": {
         "synonyms": [],
@@ -291,7 +365,9 @@
         "short": "Force to apply in the y coordinate.",
         "description": [
           "Force to apply in the y coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "ufz": {
         "synonyms": [],
@@ -299,7 +375,9 @@
         "short": "Force to apply in the z coordinate.",
         "description": [
           "Force to apply in the z coordinate (external or user-applied)."
-        ]
+        ],
+        "units": "kcal/(mol·Å)",
+        "example": "0.00"
       },
       "secondary": {
         "synonyms": ["structure"],
@@ -307,7 +385,8 @@
         "short": "Secondary structure assignment.",
         "description": [
           "Secondary structure assignment (e.g., 'H' for helix, 'E' for strand)."
-        ]
+        ],
+        "example": "H"
       },
       "phi": {
         "synonyms": [],
@@ -315,7 +394,9 @@
         "short": "Backbone phi angle.",
         "description": [
           "Backbone phi angle. Main chain dihedral angle in proteins."
-        ]
+        ],
+        "units": "degrees",
+        "example": "-60.0"
       },
       "psi": {
         "synonyms": [],
@@ -323,7 +404,9 @@
         "short": "Backbone psi angle.",
         "description": [
           "Backbone psi angle. Main chain dihedral angle in proteins."
-        ]
+        ],
+        "units": "degrees",
+        "example": "135.0"
       },
       "auth_asym_id": {
         "synonyms": [],
@@ -331,7 +414,8 @@
         "short": "Author-defined chain identifier.",
         "description": [
           "Author-defined chain identifier (as published)."
-        ]
+        ],
+        "example": "A"
       },
       "auth_atom_id": {
         "synonyms": [],
@@ -339,7 +423,8 @@
         "short": "Author-defined atom name.",
         "description": [
           "Author-defined atom name (as published)."
-        ]
+        ],
+        "example": "CA"
       },
       "auth_comp_id": {
         "synonyms": [],
@@ -347,15 +432,34 @@
         "short": "Author-defined residue name.",
         "description": [
           "Author-defined residue name (as published)."
-        ]
+        ],
+        "example": "GLY"
       },
       "auth_seq_id": {
         "synonyms": [],
         "type": "int",
-        "short": "Author-defined residue sequence number.",
+        "short": "Author-defined residue sequence number (CIF only).",
         "description": [
-          "Author-defined residue sequence number (as published)."
-        ]
+          "Author-defined residue sequence number as published in the CIF file. For CIF",
+          "structures, this is identical to what resid returns (since resid uses author",
+          "numbering). For PDB files, this column is not present (resid already contains",
+          "the author numbering directly). Provided for explicit CIF field access.",
+          "See also: resid, label_seq_id."
+        ],
+        "example": "1"
+      },
+      "label_entity_id": {
+        "synonyms": [],
+        "type": "str",
+        "short": "CIF entity identifier.",
+        "description": [
+          "CIF entity identifier (label_entity_id). Groups chains that share the same",
+          "sequence or chemical identity into a single entity. Multiple chains can share",
+          "one entity ID. Only available for CIF-format structures. Note: this is NOT",
+          "equivalent to segment/segname (which is a CHARMM/NAMD concept from PDB cols 72-76).",
+          "See also: chain, segment."
+        ],
+        "example": "1"
       },
       "pfrag": {
         "synonyms": [],
@@ -363,7 +467,8 @@
         "short": "Protein fragment index.",
         "description": [
           "Protein fragment index."
-        ]
+        ],
+        "example": "0"
       },
       "nfrag": {
         "synonyms": [],
@@ -371,7 +476,8 @@
         "short": "Nucleic fragment index.",
         "description": [
           "Nucleic fragment index."
-        ]
+        ],
+        "example": "0"
       }
     }
   }

@@ -1,0 +1,88 @@
+// ===========================================================================
+// Grammar area: COMPARISON & MATH
+//   Comparison operators, arithmetic operators, and every math function in the
+//   grammar. Operands are numeric atom fields (beta / occupancy / x / residue)
+//   that all three engines read identically, so a failure localizes to the
+//   operator or function under test.
+//
+//   Layout: the comprehensive operator/function coverage comes first; the
+//   handful of dialect exceptions (function-name spelling, `**` vs `^`, chained
+//   comparisons, floor division) come at the bottom, each captured once.
+// ===========================================================================
+[
+    // ---- comparison operators ----
+    {"description": "comparison: >",  "query": "beta > 10"},
+    {"description": "comparison: <",  "query": "beta < 10"},
+    {"description": "comparison: >=", "query": "z >= 82.813"},
+    {"description": "comparison: <=", "query": "occupancy <= 1"},
+    {"description": "comparison: ==", "query": "occupancy == 1"},
+    {"description": "comparison: !=", "query": "occupancy != 1"},
+    {"description": "comparison: eq (word form)", "query": "name eq CA"},
+    {"description": "comparison: ne (word form)", "query": "residue ne 0",
+     "xfail": {"*": {"prody": "ProDy has no `residue` keyword (uses resindex) and handles the `ne` word form differently"}}},
+
+    // ---- arithmetic operators ----
+    {"description": "arithmetic: + (add)", "query": "beta + 1 > 11"},
+    {"description": "arithmetic: - (subtract)", "query": "beta - 1 > 9"},
+    {"description": "arithmetic: * (multiply)", "query": "beta * 2 > 20"},
+    {"description": "arithmetic: / (divide)", "query": "beta / 2 > 5"},
+    {"description": "arithmetic: % (modulo)", "query": "beta % 3 < 1"},
+    {"description": "arithmetic: ^ (power)", "query": "x^3 + y^3 + z^3 < 1000"},
+
+    // ---- math functions (every grammar function_name) ----
+    {"description": "math function: sin",   "query": "sin(x) > 0"},
+    {"description": "math function: cos",   "query": "cos(x) > 0.78"},
+    {"description": "math function: tan",   "query": "tan(x) > 0"},
+    {"description": "math function: asin",  "query": "asin(x) > 0"},
+    {"description": "math function: acos",  "query": "acos(x) < 1.57"},
+    {"description": "math function: atan",  "query": "atan(x) > 0"},
+    {"description": "math function: exp",   "query": "exp(x) > 1"},
+    {"description": "math function: log",   "query": "log(x) > 0"},
+    {"description": "math function: log10", "query": "log10(x) > 1"},
+    {"description": "math function: sqrt",  "query": "sqrt(x) > sqrt(20)"},
+    {"description": "math function: abs",   "query": "abs(x) > 5"},
+    {"description": "math function: floor", "query": "floor(x) < 0"},
+    {"description": "math function: ceil",  "query": "ceil(beta) == 10"},
+    {"description": "math function: sinh",  "query": "sinh(x) > 0"},
+    {"description": "math function: cosh",  "query": "cosh(x) < 1.2"},
+    {"description": "math function: tanh",  "query": "tanh(x) > 0",
+     "xfail": {"*": {"prody": "ProDy's tanh has a function-name typo / is unsupported"}}},
+
+    // ---- nested / combined expressions ----
+    {"description": "math: euclidean distance", "query": "sqrt(x**2 + y**2 + z**2) < 100",
+     "prody_query": "sqrt(x^2 + y^2 + z^2) < 100"},
+    {"description": "math: precedence of % chain", "query": "beta % 4 % 3 < 1"},
+
+    // ====================== exceptions (dialect differences) =================
+
+    // power operator: MolSelect/VMD use `**`, ProDy uses `^`
+    {"description": "arithmetic: ** (power)", "query": "x ** 2 < 10",
+     "prody_query": "x ^ 2 < 10",
+     "note": "ProDy uses `^` for exponentiation; MolSelect/VMD use `**`."},
+
+    // floor division: MolSelect only
+    {"description": "arithmetic: // (floor division)", "query": "beta // 3 >= 3",
+     "xfail": {"*": {"vmd": "VMD has no floor-division operator",
+                     "prody": "ProDy has no floor-division operator"}}},
+
+    // chained comparisons: VMD has none
+    {"description": "comparison: chained a <= x < b", "query": "20 <= x < 30",
+     "vmd_query": "x >= 20 and x < 30",
+     "note": "VMD does not support chained comparisons."},
+
+    // function-name aliases (MolSelect alias -> engine-native spelling)
+    {"description": "math alias: arcsin = asin", "query": "arcsin(x) > 0",
+     "prody_query": "asin(x) > 0", "vmd_query": "asin(x) > 0"},
+    {"description": "math alias: arccos = acos", "query": "arccos(x) < 1.57",
+     "prody_query": "acos(x) < 1.57", "vmd_query": "acos(x) < 1.57"},
+    {"description": "math alias: arctan = atan", "query": "arctan(x) > 0",
+     "prody_query": "atan(x) > 0", "vmd_query": "atan(x) > 0"},
+    {"description": "math alias: ln = log", "query": "ln(x) > 0",
+     "prody_query": "log(x) > 0", "vmd_query": "log(x) > 0"},
+    {"description": "math alias: sq = sqr", "query": "sq(x) > 1.1",
+     "vmd_query": "sqr(x) > 1.1"},
+    {"description": "math alias: sqr = sq", "query": "sqr(x-5)+sqr(y+4)+sqr(z) > sqr(5)",
+     "prody_query": "sq(x-5)+sq(y+4)+sq(z) > sq(5)"},
+    {"description": "math alias: square = sq/sqr", "query": "square(x) > 10",
+     "prody_query": "sq(x) > 10", "vmd_query": "sqr(x) > 10"}
+]

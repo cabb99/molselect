@@ -1,0 +1,45 @@
+// ===========================================================================
+// Grammar area: RANGES
+//   `N to M`, `N:M`, `N:M:S` (step), value lists, and the glued `NtoM` form.
+//   Tested on serial/index/beta (engine-agnostic) plus resid (auth numbering,
+//   so VMD diverges on CIF).
+//
+// Divergences owned by this file (captured once):
+//   - MolSelect `N:M` is INCLUSIVE of M (like VMD `N to M`); ProDy `:` is
+//     exclusive and VMD errors on colon ranges -> refs use the `to`/enumerated
+//     equivalent.
+//   - resid ranges on CIF: VMD uses label_seq_id -> xfail vmd on *.cif.
+//   - glued `NtoM` (no spaces): MolSelect mis-parses it today (grammar gap,
+//     Phase 3) -> xfail all references for those cases.
+// ===========================================================================
+[
+    {"description": "range: N to M (serial)", "query": "serial 1 to 10"},
+    {"description": "range: N to M (beta)", "query": "beta 1 to 500"},
+    {"description": "range: N to M (resid, auth numbering)", "query": "resid 10 to 20",
+     "xfail": {"*.cif": {"vmd": "VMD resid uses label_seq_id on CIF"}}},
+
+    {"description": "range: N:M inclusive (index)", "query": "index 0:10",
+     "prody_query": "index 0 to 10", "vmd_query": "index 0 to 10",
+     "note": "MolSelect `N:M` is inclusive of M (like VMD `N to M`); ProDy `:` is exclusive."},
+    {"description": "range: N:M (beta)", "query": "beta 1:500",
+     "prody_query": "beta 1 to 500", "vmd_query": "beta 1 to 500"},
+    {"description": "range: N:M (resid, auth numbering)", "query": "resid 1:4",
+     "prody_query": "resid 1 to 4", "vmd_query": "resid 1 to 4",
+     "xfail": {"*.cif": {"vmd": "VMD resid uses label_seq_id on CIF"}}},
+
+    {"description": "range: N:M:S step", "query": "serial 0:10:2",
+     "prody_query": "serial 0 2 4 6 8 10", "vmd_query": "serial 0 2 4 6 8 10",
+     "note": "VMD/ProDy have no step ranges; enumerate."},
+    {"description": "range: N:M:S step (odd)", "query": "serial 1:10:2",
+     "prody_query": "serial 1 3 5 7 9", "vmd_query": "serial 1 3 5 7 9"},
+
+    {"description": "range: value list (serial)", "query": "serial 1 2 3"},
+    {"description": "range: value list with out-of-range (index)", "query": "index 10 20 10000"},
+
+    {"description": "range: glued NtoM (index)", "query": "index 0to10",
+     "vmd_query": "index 0 to 10", "prody_query": "index 0 to 10",
+     "xfail": {"*": "MolSelect mis-parses glued `NtoM` (e.g. 0to10) today; grammar gap tracked in Phase 3"}},
+    {"description": "range: glued NtoM (resid)", "query": "resid 10to15",
+     "vmd_query": "resid 10 to 15", "prody_query": "resid 10 to 15",
+     "xfail": {"*": "MolSelect mis-parses glued `NtoM` (e.g. 10to15) today; grammar gap tracked in Phase 3"}}
+]

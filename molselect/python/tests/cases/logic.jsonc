@@ -1,0 +1,45 @@
+// ===========================================================================
+// Grammar area: BOOLEAN LOGIC
+//   and / or / not / xor, implicit-AND (juxtaposition), operator precedence,
+//   double negation, parenthesised grouping.
+//
+// Operands are deliberately chosen from selections all three engines agree on
+// (name CA, water, oxygen, resname ALA, noh) so a failure localizes to the
+// LOGIC operator under test, never to a diverging operand like `protein`.
+//
+// Divergences owned by this file (captured once):
+//   - implicit-AND between two property selections needs an explicit `and` in
+//     VMD  ->  per-case "vmd_query".
+//   - `xor` is not a VMD/ProDy keyword  ->  equivalent expansion.
+// ===========================================================================
+[
+    {"description": "logic: and", "query": "oxygen and water"},
+    {"description": "logic: and (fields)", "query": "name CA and resname ALA"},
+    {"description": "logic: and is commutative", "query": "water and oxygen"},
+
+    {"description": "logic: or", "query": "oxygen or water"},
+    {"description": "logic: or (same field twice)", "query": "name CA or name CB"},
+
+    {"description": "logic: not", "query": "not water"},
+    {"description": "logic: not (field)", "query": "not name CA"},
+    {"description": "logic: double negation is identity", "query": "not not water"},
+    {"description": "logic: even negations cancel", "query": "not not not not name CA"},
+
+    {"description": "logic: implicit-and (field juxtaposition)", "query": "resname ALA name CA",
+     "vmd_query": "resname ALA and name CA",
+     "note": "Juxtaposition = AND. VMD requires an explicit `and` between two property selections."},
+    {"description": "logic: implicit-and (flag then field)", "query": "water oxygen"},
+
+    {"description": "logic: precedence not before and", "query": "not water and name CA",
+     "prody_query": "(not water) and name CA", "vmd_query": "(not water) and name CA"},
+    {"description": "logic: precedence and before or", "query": "oxygen and water or name CA",
+     "prody_query": "(oxygen and water) or name CA", "vmd_query": "(oxygen and water) or name CA"},
+
+    {"description": "logic: parentheses regroup", "query": "(oxygen or name CA) and noh"},
+    {"description": "logic: nested parentheses", "query": "((water or oxygen) and noh) or name CB"},
+
+    {"description": "logic: xor", "query": "oxygen xor water",
+     "prody_query": "(oxygen or water) and not (oxygen and water)",
+     "vmd_query": "(oxygen or water) and not (oxygen and water)",
+     "note": "`xor` is a MolSelect operator; VMD/ProDy have no xor keyword, expanded to (a or b) and not (a and b)."}
+]

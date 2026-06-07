@@ -51,7 +51,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx_design',
-    'sphinx_copybutton',    
+    'sphinx_copybutton',
+    'myst_parser',
 ]
 
 
@@ -63,11 +64,8 @@ napoleon_use_ivar = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+# The suffix(es) of source filenames. Markdown is handled by myst_parser.
+source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
 
 # The master toctree document.
 master_doc = 'index'
@@ -77,7 +75,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -175,3 +173,163 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+
+
+
+# -- Generate keyword reference table --------------------------------------
+import os
+import json
+# Create keywords table:
+def generate_keyword_table_rst(app):
+    # 1) locate your JSON (adjust path as needed)
+    src = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir,  'molselect', 'data', "keywords.json"))
+    # 2) output file under docs/
+    dst = os.path.join(os.path.dirname(__file__), "keywords.rst")
+
+    data = json.load(open(src, encoding="utf-8"))
+    lines = []
+    lines.append("Keyword Reference")
+    lines.append("=================")
+    lines.append("")
+    for category, kwmap in data["keywords"].items():
+        # section header
+        lines.append(category)
+        lines.append("-" * len(category))
+        # keep this blank line indented so it's still inside the list-table directive block
+        lines.append("   ")
+        lines.append(".. list-table::")
+        lines.append("   :header-rows: 1")
+        lines.append("   :widths: 15 8 15 20 40")
+        # again, indent the blank line
+        lines.append("   ")
+        # multi-line header
+        lines.append("   * - **Keyword**")
+        lines.append("     - **Type**")
+        lines.append("     - **Synonyms**")
+        lines.append("     - **Short description**")
+        lines.append("     - **Description**")
+        # each keyword
+        for name, meta in kwmap.items():
+            syn = ", ".join(meta.get("synonyms", [])) or "—"
+            short = meta.get("short", "").replace("\n", " ")
+            desc  = " ".join(meta.get("description", [])).replace("\n", " ")
+            lines.append(f"   * - ``{name}``")
+            lines.append(f"     - ``{meta['type']}``")
+            lines.append(f"     - {syn}")
+            lines.append(f"     - {short}")
+            lines.append(f"     - {desc}")
+        lines.append("")
+    # write out
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+def generate_keyword_rst(app):
+    import os, json
+
+    src = os.path.abspath(os.path.join(
+        os.path.dirname(__file__),
+        os.pardir,
+        'molselect', 'data',
+        'keywords.json'
+    ))
+    dst = os.path.join(os.path.dirname(__file__), 'keywords.rst')
+    data = json.load(open(src, encoding='utf-8'))
+
+    lines = [
+        "Keyword Reference",
+        "=================",
+        "",
+    ]
+
+    for category, kwmap in data["keywords"].items():
+        # Category heading
+        lines.append(category)
+        lines.append('-' * len(category))
+        lines.append('')
+
+        # Start glossary
+        lines.append('.. glossary::')
+        lines.append('')
+
+        for name, meta in kwmap.items():
+            # List main name and all synonyms, one per line, no markup
+            lines.append(f"    **{name}**")
+            for syn in meta.get("synonyms", []):
+                lines.append(f"    *{syn}*")
+            # Definition block indented under last term
+            # Type in bold, then description, then extra info
+            lines.append(f"        **Type:** ``{meta['type']}``")
+            for paragraph in meta.get("description", []):
+                lines.append(f"        {paragraph}")
+            if 'units' in meta:
+                lines.append("")
+                units = meta['units']
+                if any(x in units for x in ['^', '·', '/', '(', ')', 'Å']):
+                    lines.append(f"        **Units:** :math:`{units}`")
+                else:
+                    lines.append(f"        **Units:** {units}")
+            if 'example' in meta:
+                lines.append("")
+                lines.append(f"        **Example:** ``{name} {meta['example']}``")
+            lines.append("")
+            lines.append('')  # blank line between entries
+        lines.append('')  # extra blank after category
+
+    with open(dst, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+# -- Generate macros reference table --------------------------------------
+def generate_macros_rst(app):
+    import os, json
+    src = os.path.abspath(os.path.join(
+        os.path.dirname(__file__),
+        os.pardir,
+        'molselect', 'data',
+        'macros.json'
+    ))
+    dst = os.path.join(os.path.dirname(__file__), 'macros.rst')
+    data = json.load(open(src, encoding='utf-8'))
+
+    lines = [
+        "Macro Reference",
+        "===============",
+        "",
+    ]
+
+    macros = data.get("macros", {})
+    for category, macro_map in macros.items():
+        lines.append(category)
+        lines.append('-' * len(category))
+        lines.append('')
+        lines.append('.. glossary::')
+        lines.append('')
+        for name, meta in macro_map.items():
+            # List main name and all synonyms, one per line, no markup
+            lines.append(f"    {name}")
+            for syn in meta.get("synonyms", []):
+                lines.append(f"    {syn}")
+            # Definition block indented under last term
+            desc = meta.get("description", "")
+            if isinstance(desc, list):
+                for d in desc:
+                    lines.append(f"        {d}")
+            elif desc:
+                lines.append(f"        {desc}")
+            if meta.get("definition"):
+                lines.append("")
+                lines.append(f"        **Definition:** ``{meta['definition']}``")
+            if 'example' in meta:
+                lines.append("")
+                lines.append(f"        **Example:** ``{meta['example']}``")
+            lines.append("")
+        lines.append("")
+
+    with open(dst, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+# Connect the function to the Sphinx app       
+def setup(app):
+    # run once, before docs build
+    app.connect("builder-inited", generate_keyword_rst)
+    app.connect("builder-inited", generate_macros_rst)
