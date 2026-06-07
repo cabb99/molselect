@@ -25,8 +25,7 @@
     {"description": "arithmetic: + (add)", "query": "beta + 1 > 11"},
     {"description": "arithmetic: - (subtract)", "query": "beta - 1 > 9"},
     {"description": "arithmetic: * (multiply)", "query": "beta * 2 > 20"},
-    {"description": "arithmetic: / (divide)", "query": "beta / 2 > 5",
-     "xfail": {"*": "MolSelect grammar does not accept `/` division before a comparison today; gap tracked in Phase 3"}},
+    {"description": "arithmetic: / (divide)", "query": "beta / 2 > 5"},
     {"description": "arithmetic: % (modulo)", "query": "beta % 3 < 1"},
     {"description": "arithmetic: ^ (power)", "query": "x^3 + y^3 + z^3 < 1000"},
 

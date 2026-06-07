@@ -221,7 +221,7 @@ EXWITHIN  : /exwithin\b/
 _OF        : /of\b/
 BONDED    : /bonded\b/
 EXBONDED  : /exbonded\b/
-_TO      : /to\b/    
+_TO      : /to\b/
 _SEQUENCE  : /sequence\b/
 _IN : /in\b/
 
@@ -232,7 +232,7 @@ _IN : /in\b/
 _PLUS        : "+"           
 _MINUS       : "-"           
 _TIMES       : /\*(?!\*)/           
-_DIV         : "/(?!/)"           
+_DIV         : "/"
 _INTEGER_DIV : "//"          
 _MOD         : "%"           
 _POW         : "**" | "^"

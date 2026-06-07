@@ -13,6 +13,7 @@ dependencies:
   - pydata-sphinx-theme
   - sphinx-design
   - sphinx-copybutton
+  - myst-parser
 
 
 
